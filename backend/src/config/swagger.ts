@@ -47,6 +47,47 @@ const options: swaggerJsdoc.Options = {
             },
           },
         },
+        ParkingSpotCreate: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', example: 'Main Entrance Spot' },
+            address: { type: 'string', example: '123 Main St, City' },
+            latitude: { type: 'number', example: 12.9716 },
+            longitude: { type: 'number', example: 77.5946 },
+            totalSpots: { type: 'integer', example: 5 },
+            availableSpots: { type: 'integer', example: 5 },
+            pricePerHour: { type: 'number', example: 1.5 },
+          },
+          required: ['name', 'address', 'latitude', 'longitude', 'totalSpots'],
+        },
+        ParkingSpot: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'ps_123abc' },
+            name: { type: 'string' },
+            address: { type: 'string' },
+            latitude: { type: 'number' },
+            longitude: { type: 'number' },
+            totalSpots: { type: 'integer' },
+            availableSpots: { type: 'integer' },
+            pricePerHour: { type: 'number' },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        ParkingSlot: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'slot_abc123' },
+            parkingSpotId: { type: 'string', example: 'ps_123abc' },
+            slotNumber: { type: 'integer', example: 1 },
+            cameraId: { type: 'string', nullable: true, example: null },
+            permanentSlotId: { type: 'string', nullable: true, example: null },
+            status: { type: 'string', enum: ['FREE', 'OCCUPIED', 'UNKNOWN'], example: 'FREE' },
+            lastUpdated: { type: 'string', format: 'date-time' },
+            isActive: { type: 'boolean', example: true },
+            cvLogs: { type: 'array', items: { type: 'object' } },
+          },
+        },
         User: {
           type: 'object',
           properties: {
@@ -98,6 +139,14 @@ const options: swaggerJsdoc.Options = {
       {
         name: 'Vehicle',
         description: 'Vehicle verification and management',
+      },
+      {
+        name: 'ParkingSpot',
+        description: 'Parking spot management',
+      },
+      {
+        name: 'ParkingSlot',
+        description: 'Individual parking slots for a parking spot',
       },
     ],
   },

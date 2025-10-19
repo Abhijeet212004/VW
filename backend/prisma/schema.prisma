@@ -62,7 +62,7 @@ model VerificationLog {
 }
 
 model ParkingSpot {
-  id                      String    @id @default(uuid())
+  id                      String        @id @default(uuid())
   name                    String
   address                 String
   latitude                Float
@@ -70,20 +70,49 @@ model ParkingSpot {
   totalSpots              Int
   availableSpots          Int
   pricePerHour            Float
-  isCovered               Boolean   @default(false)
-  hasSecurity             Boolean   @default(false)
-  hasEVCharging           Boolean   @default(false)
-  rating                  Float     @default(0)
+  isCovered               Boolean       @default(false)
+  hasSecurity             Boolean       @default(false)
+  hasEVCharging           Boolean       @default(false)
+  rating                  Float         @default(0)
   imageUrl                String?
   entryCameraId           String?
   exitCameraId            String?
-  hasALPR                 Boolean   @default(false)
-  overtimePriceMultiplier Float     @default(1.5)
-  isActive                Boolean   @default(true)
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  hasALPR                 Boolean       @default(false)
+  overtimePriceMultiplier Float         @default(1.5)
+  isActive                Boolean       @default(true)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
 
-  bookings Booking[]
+  bookings                Booking[]
+  slots                   ParkingSlot[]
+}
+
+model ParkingSlot {
+  id              String       @id @default(uuid())
+  parkingSpotId   String
+  parkingSpot     ParkingSpot  @relation(fields: [parkingSpotId], references: [id])
+  slotNumber      Int
+  cameraId        String?
+  permanentSlotId String?      @unique
+  status          SlotStatus   @default(FREE)
+  lastUpdated     DateTime     @default(now())
+  isActive        Boolean      @default(true)
+
+  cvLogs          SlotCVLog[]
+  bookings        Booking[]    // <- NEW: all bookings assigned to this slot
+}
+
+
+model SlotCVLog {
+  id            String      @id @default(uuid())
+  slotId        String
+  slot          ParkingSlot @relation(fields: [slotId], references: [id])
+  eventType     CVEventType
+  detectedPlate String?
+  confidence    Float?
+  imageUrl      String?
+  status        SlotStatus
+  timestamp     DateTime     @default(now())
 }
 
 model Booking {
@@ -94,6 +123,9 @@ model Booking {
   vehicle          Vehicle       @relation(fields: [vehicleId], references: [id])
   parkingSpotId    String
   parkingSpot      ParkingSpot   @relation(fields: [parkingSpotId], references: [id])
+  parkingSlotId    String?       // <- NEW: optional relation to specific slot
+  parkingSlot      ParkingSlot?  @relation(fields: [parkingSlotId], references: [id])
+
   bookedStartTime  DateTime
   bookedEndTime    DateTime
   bookedDuration   Int
@@ -121,16 +153,14 @@ model Booking {
 
 model CVLog {
   id               String      @id @default(uuid())
-  bookingId        String
-  booking          Booking     @relation(fields: [bookingId], references: [id])
-  eventType        CVEventType
+  bookingId        String?
+  booking          Booking?    @relation(fields: [bookingId], references: [id])
   vehicleNumber    String
+  eventType        CVEventType
   confidence       Float
-  imageUrl         String
-  timestamp        DateTime    @default(now())
+  imageUrl         String?
   cameraId         String?
-  boundingBox      Json?
-  plateCoordinates Json?
+  timestamp        DateTime    @default(now())
   processed        Boolean     @default(false)
   processingError  String?
   createdAt        DateTime    @default(now())
@@ -206,6 +236,7 @@ enum CVEventType {
   ENTRY
   EXIT
   OVERSTAY_ALERT
+  SLOT_UPDATE
 }
 
 enum TransactionType {
@@ -219,4 +250,10 @@ enum TransactionStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+enum SlotStatus {
+  FREE
+  OCCUPIED
+  BLOCKED
 }
