@@ -1,0 +1,222 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  clerkId            String             @unique
+  email              String             @unique
+  name               String
+  phone              String?
+  profilePhoto       String?
+  verificationStatus VerificationStatus @default(PENDING)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  vehicles Vehicle[]
+  bookings Booking[]
+  wallet   Wallet?
+}
+
+model Vehicle {
+  id                 String             @id @default(uuid())
+  userId             String
+  user               User               @relation(fields: [userId], references: [id])
+  registrationNumber String             @unique
+  ownerName          String
+  enteredName        String
+  make               String
+  model              String
+  color              String?
+  fuelType           String?
+  registrationDate   DateTime?
+  qrCode             String?
+  numberPlatePhoto   String?
+  verificationStatus VerificationStatus
+  verificationScore  Float?
+  verificationMethod VerificationMethod
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  verificationLogs VerificationLog[]
+  bookings         Booking[]
+}
+
+model VerificationLog {
+  id           String             @id @default(uuid())
+  vehicleId    String
+  vehicle      Vehicle            @relation(fields: [vehicleId], references: [id])
+  rtoResponse  Json
+  enteredName  String
+  rtoOwnerName String
+  matchScore   Float
+  method       VerificationMethod
+  status       VerificationStatus
+  createdAt    DateTime           @default(now())
+}
+
+model ParkingSpot {
+  id                      String    @id @default(uuid())
+  name                    String
+  address                 String
+  latitude                Float
+  longitude               Float
+  totalSpots              Int
+  availableSpots          Int
+  pricePerHour            Float
+  isCovered               Boolean   @default(false)
+  hasSecurity             Boolean   @default(false)
+  hasEVCharging           Boolean   @default(false)
+  rating                  Float     @default(0)
+  imageUrl                String?
+  entryCameraId           String?
+  exitCameraId            String?
+  hasALPR                 Boolean   @default(false)
+  overtimePriceMultiplier Float     @default(1.5)
+  isActive                Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  bookings Booking[]
+}
+
+model Booking {
+  id               String        @id @default(uuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+  vehicleId        String
+  vehicle          Vehicle       @relation(fields: [vehicleId], references: [id])
+  parkingSpotId    String
+  parkingSpot      ParkingSpot   @relation(fields: [parkingSpotId], references: [id])
+  bookedStartTime  DateTime
+  bookedEndTime    DateTime
+  bookedDuration   Int
+  actualEntryTime  DateTime?
+  actualExitTime   DateTime?
+  actualDuration   Int?
+  baseAmount       Float
+  extraTimeAmount  Float         @default(0)
+  totalAmount      Float
+  paymentMode      PaymentMode
+  paymentStatus    PaymentStatus
+  paymentSource    String        @default("WALLET")
+  status           BookingStatus
+  entryQrCode      String?
+  entryImageUrl    String?
+  exitImageUrl     String?
+  isOverstay       Boolean       @default(false)
+  overstayMinutes  Int           @default(0)
+  overstayCharged  Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  cvLogs CVLog[]
+}
+
+model CVLog {
+  id               String      @id @default(uuid())
+  bookingId        String
+  booking          Booking     @relation(fields: [bookingId], references: [id])
+  eventType        CVEventType
+  vehicleNumber    String
+  confidence       Float
+  imageUrl         String
+  timestamp        DateTime    @default(now())
+  cameraId         String?
+  boundingBox      Json?
+  plateCoordinates Json?
+  processed        Boolean     @default(false)
+  processingError  String?
+  createdAt        DateTime    @default(now())
+}
+
+model Wallet {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id])
+  balance          Float     @default(0)
+  lockedBalance    Float     @default(0)
+  minBalance       Float     @default(50)
+  maxBalance       Float     @default(10000)
+  stripeCustomerId String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  transactions Transaction[]
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  walletId        String
+  wallet          Wallet            @relation(fields: [walletId], references: [id])
+  type            TransactionType
+  amount          Float
+  balanceBefore   Float
+  balanceAfter    Float
+  bookingId       String?
+  stripePaymentId String?
+  description     String
+  status          TransactionStatus
+  createdAt       DateTime          @default(now())
+}
+
+enum VerificationStatus {
+  PENDING
+  AUTO_VERIFIED
+  MANUAL_REVIEW
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationMethod {
+  QR_SCAN
+  MANUAL_ENTRY
+  PHOTO_OCR
+}
+
+enum PaymentMode {
+  PREPAID
+  PAY_LATER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  OVERSTAY
+  COMPLETED
+  CANCELLED
+}
+
+enum CVEventType {
+  ENTRY
+  EXIT
+  OVERSTAY_ALERT
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
