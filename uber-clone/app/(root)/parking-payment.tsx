@@ -1,9 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, SafeAreaView, Modal } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, SafeAreaView, Modal, Alert } from "react-native";
 import { icons } from "@/constants";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ParkingPayment = () => {
+  const { token, user } = useAuth();
   const params = useLocalSearchParams();
   const parkingName = params.parkingName as string || "Parking Location";
   const spotId = params.spotId as string || "A-13";
@@ -11,6 +13,7 @@ const ParkingPayment = () => {
   
   const [selectedPayment, setSelectedPayment] = useState<'wallet' | 'later' | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isCreatingBooking, setIsCreatingBooking] = useState(false);
   const [parkingDuration] = useState(2); // hours
   const pricePerHour = 20;
   const totalAmount = parkingDuration * pricePerHour;
@@ -19,36 +22,245 @@ const ParkingPayment = () => {
     router.back();
   };
 
-  const handlePayment = () => {
+  const createBooking = async (paymentMode: 'PREPAID' | 'PAY_LATER') => {
+    if (!token) {
+      Alert.alert("Error", "You must be logged in to create a booking");
+      return false;
+    }
+
+    setIsCreatingBooking(true);
+    
+    try {
+      // First, ensure user has a vehicle - use quick register if needed
+      const hasVehicle = await ensureUserHasVehicle();
+      if (!hasVehicle) {
+        return false;
+      }
+
+      // Get user's first vehicle
+      const vehicleResponse = await fetch('http://localhost:3000/api/vehicle/my-vehicles', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!vehicleResponse.ok) {
+        throw new Error('Failed to get user vehicles');
+      }
+
+      const vehicleData = await vehicleResponse.json();
+      const userVehicle = vehicleData.data?.vehicles?.[0];
+
+      if (!userVehicle) {
+        throw new Error('No vehicles found. Please add a vehicle first.');
+      }
+
+      // Create or get a default parking spot
+      const parkingSpotId = await ensureParkingSpotExists();
+
+      const bookingData = {
+        vehicleId: userVehicle.id,
+        parkingSpotId: parkingSpotId,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + parkingDuration * 60 * 60 * 1000).toISOString(),
+        pricePerHour: pricePerHour,
+        paymentMode: paymentMode
+      };
+
+      console.log('Creating booking with data:', bookingData);
+
+      const response = await fetch('http://localhost:3000/api/booking/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(bookingData),
+      });
+
+      const data = await response.json();
+      console.log('Booking API response:', data);
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create booking');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Booking creation error:', error);
+      Alert.alert(
+        "Booking Failed", 
+        error instanceof Error ? error.message : 'Failed to create booking'
+      );
+      return false;
+    } finally {
+      setIsCreatingBooking(false);
+    }
+  };
+
+  const ensureUserHasVehicle = async (): Promise<boolean> => {
+    try {
+      // Check if user already has vehicles
+      console.log('🚗 Checking user vehicles...');
+      const vehicleResponse = await fetch('http://localhost:3000/api/vehicle/my-vehicles', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      console.log('🚗 Vehicle response status:', vehicleResponse.status);
+      
+      if (vehicleResponse.ok) {
+        const vehicleData = await vehicleResponse.json();
+        console.log('🚗 Vehicle response data:', vehicleData);
+        
+        if (vehicleData.data && vehicleData.data.vehicles && vehicleData.data.vehicles.length > 0) {
+          console.log('✅ User has vehicles:', vehicleData.data.vehicles.length);
+          return true; // User already has vehicles
+        }
+      } else {
+        const errorData = await vehicleResponse.json();
+        console.log('❌ Vehicle fetch error:', errorData);
+      }
+
+      // User has no vehicles, create a default one using the quick register
+      console.log('🚗 Creating default vehicle...');
+      const defaultLicensePlate = "MH12AB1234"; // Default for testing
+      const ownerName = user?.name || "Test User";
+
+      const registerResponse = await fetch('http://localhost:3000/api/vehicle/quick-register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          licensePlate: defaultLicensePlate,
+          ownerName: ownerName,
+        }),
+      });
+
+      console.log('🚗 Register response status:', registerResponse.status);
+
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json();
+        console.log('❌ Register error:', errorData);
+        throw new Error(errorData.message || 'Failed to register default vehicle');
+      }
+
+      const registerData = await registerResponse.json();
+      console.log('✅ Default vehicle registered:', registerData);
+      return true;
+    } catch (error) {
+      console.error('Error ensuring user has vehicle:', error);
+      Alert.alert("Error", `Failed to set up vehicle: ${error instanceof Error ? error.message : 'Please try again.'}`);
+      return false;
+    }
+  };
+
+  const ensureParkingSpotExists = async (): Promise<string> => {
+    try {
+      console.log('🏁 Checking for existing parking spots...');
+      // Get existing parking spots
+      const spotsResponse = await fetch('http://localhost:3000/api/parking-spot/all');
+      
+      if (spotsResponse.ok) {
+        const spotsData = await spotsResponse.json();
+        console.log('🏁 Parking spots response:', spotsData);
+        
+        if (spotsData.success && spotsData.data && spotsData.data.length > 0) {
+          console.log('✅ Using existing parking spot:', spotsData.data[0].id);
+          return spotsData.data[0].id; // Return first available parking spot
+        }
+      } else {
+        console.log('❌ Failed to fetch parking spots:', spotsResponse.status);
+      }
+
+      // No parking spots exist, create a default one
+      console.log('🏁 Creating default parking spot...');
+      const defaultParkingSpot = {
+        name: parkingName || "Test Parking Location",
+        address: "123 Test Street, Test City",
+        latitude: 18.5204,
+        longitude: 73.8567,
+        totalSpots: 100,
+        availableSpots: 99,
+        pricePerHour: pricePerHour,
+        isCovered: false,
+        hasSecurity: true,
+        hasEVCharging: false,
+      };
+
+      console.log('🏁 Creating parking spot with data:', defaultParkingSpot);
+
+      const createResponse = await fetch('http://localhost:3000/api/parking-spot/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(defaultParkingSpot),
+      });
+
+      console.log('🏁 Create parking spot response status:', createResponse.status);
+
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json();
+        console.log('❌ Create parking spot error:', errorData);
+        throw new Error(errorData.message || 'Failed to create parking spot');
+      }
+
+      const createdSpot = await createResponse.json();
+      console.log('✅ Default parking spot created:', createdSpot);
+      
+      if (createdSpot.success && createdSpot.data && createdSpot.data.id) {
+        return createdSpot.data.id;
+      } else {
+        throw new Error('Invalid parking spot creation response');
+      }
+    } catch (error) {
+      console.error('Error ensuring parking spot exists:', error);
+      throw error; // Re-throw the error so booking creation fails properly
+    }
+  };
+
+  const handlePayment = async () => {
     if (selectedPayment === 'wallet') {
       // Show confirmation dialog for wallet payment
       setShowConfirmation(true);
     } else if (selectedPayment === 'later') {
-      // Directly go to booking confirmed for pay later
-      router.push({
-        pathname: "/(root)/booking-confirmed",
-        params: {
-          parkingName,
-          spotId,
-          paymentMethod: 'later',
-        },
-      });
+      // Create booking with pay later
+      const success = await createBooking('PAY_LATER');
+      if (success) {
+        router.push({
+          pathname: "/(root)/booking-confirmed",
+          params: {
+            parkingName,
+            spotId,
+            paymentMethod: 'later',
+          },
+        });
+      }
     }
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     setShowConfirmation(false);
-    // Navigate to booking confirmed with a slight delay to allow modal to close
-    setTimeout(() => {
-      router.push({
-        pathname: "/(root)/booking-confirmed",
-        params: {
-          parkingName,
-          spotId,
-          paymentMethod: 'wallet',
-        },
-      });
-    }, 100);
+    
+    // Create booking with prepaid payment
+    const success = await createBooking('PREPAID');
+    if (success) {
+      // Navigate to booking confirmed with a slight delay to allow modal to close
+      setTimeout(() => {
+        router.push({
+          pathname: "/(root)/booking-confirmed",
+          params: {
+            parkingName,
+            spotId,
+            paymentMethod: 'wallet',
+          },
+        });
+      }, 100);
+    }
   };
 
   const handleCancelPayment = () => {
@@ -203,13 +415,20 @@ const ParkingPayment = () => {
           <TouchableOpacity
             style={[
               styles.payButton,
-              !selectedPayment && styles.payButtonDisabled
+              (!selectedPayment || isCreatingBooking) && styles.payButtonDisabled
             ]}
             onPress={handlePayment}
-            disabled={!selectedPayment}
+            disabled={!selectedPayment || isCreatingBooking}
           >
             <Text style={styles.payButtonText}>
-              {selectedPayment === 'wallet' ? 'Pay Now' : selectedPayment === 'later' ? 'Confirm Booking' : 'Select Payment Method'}
+              {isCreatingBooking 
+                ? 'Creating Booking...' 
+                : selectedPayment === 'wallet' 
+                  ? 'Pay Now' 
+                  : selectedPayment === 'later' 
+                    ? 'Confirm Booking' 
+                    : 'Select Payment Method'
+              }
             </Text>
           </TouchableOpacity>
         </View>

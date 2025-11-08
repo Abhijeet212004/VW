@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as vehicleController from './vehicle.controller';
 import { validateRequest } from '../../middlewares/validate.middleware';
 import { requireAuth } from '../../middlewares/auth.middleware';
+import { requireCustomAuth } from '../../middlewares/customAuth.middleware';
 import {
   verifyQRSchema,
   verifyNameSchema,
@@ -148,7 +149,7 @@ router.post(
  *                       items:
  *                         type: object
  */
-router.get('/my-vehicles', requireAuth, vehicleController.getMyVehicles);
+router.get('/my-vehicles', requireCustomAuth, vehicleController.getMyVehicles);
 
 /**
  * @swagger
@@ -236,6 +237,36 @@ router.delete(
   requireAuth,
   validateRequest(getVehicleSchema),
   vehicleController.deleteVehicle
+);
+
+/**
+ * @swagger
+ * /api/vehicle/quick-register:
+ *   post:
+ *     summary: Quick register vehicle with license plate
+ *     tags: [Vehicle]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - licensePlate
+ *             properties:
+ *               licensePlate:
+ *                 type: string
+ *                 example: "MH12AB1234"
+ *     responses:
+ *       200:
+ *         description: Vehicle registered successfully
+ */
+router.post(
+  '/quick-register',
+  requireCustomAuth,
+  vehicleController.quickRegister
 );
 
 export default router;

@@ -1,0 +1,17 @@
+# Ignore YOLO training datasets (too large)
+CV_VW/YOLO_training/yolo_dataset/
+CV_VW/detected_plates/
+backend/detected_plates/
+temp_plates/
+
+# Ignore training outputs and checkpoints
+CV_VW/outputs/
+CV_VW/__pycache__/
+**/__pycache__/
+
+# Ignore large model files
+*.pth
+*.pt
+
+# Ignore cache files
+*.cache

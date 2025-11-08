@@ -1,54 +1,115 @@
-import { useUser, useAuth } from "@clerk/clerk-expo";
-import { Image, ScrollView, Text, View, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { useAuth } from "@/contexts/AuthContext";
+import { Image, ScrollView, Text, View, TouchableOpacity, StyleSheet, Alert, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { icons } from "@/constants";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const Profile = () => {
-  const { user } = useUser();
-  const { signOut } = useAuth();
-  const [walletBalance, setWalletBalance] = useState(245.50);
+  const { user, token, signOut } = useAuth();
+  const [walletData, setWalletData] = useState({
+    balance: 0,
+    lockedBalance: 0,
+    availableBalance: 0,
+    minBalance: 50,
+    maxBalance: 10000,
+  });
+  const [bookings, setBookings] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchWalletBalance = async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch('http://localhost:3000/api/wallet/balance', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setWalletData(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch wallet balance:', error);
+    }
+  };
+
+  const fetchUserBookings = async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch('http://localhost:3000/api/booking/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setBookings(data.data.bookings);
+      }
+    } catch (error) {
+      console.error('Failed to fetch bookings:', error);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchWalletBalance(), fetchUserBookings()]);
+    setRefreshing(false);
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      fetchWalletBalance();
+      fetchUserBookings();
+    }
+  }, [token]);
 
   const handleAddMoney = () => {
     Alert.prompt(
       "Add Money to Wallet",
-      "Enter amount to add",
+      `Enter amount to add (Max: ₹${walletData.maxBalance - walletData.balance})`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Add",
-          onPress: (amount) => {
+          onPress: async (amount) => {
             const numAmount = parseFloat(amount || "0");
             if (numAmount > 0) {
-              setWalletBalance(prev => prev + numAmount);
-              Alert.alert("Success", `$${numAmount.toFixed(2)} added to your wallet!`);
-            }
-          },
-        },
-      ],
-      "plain-text",
-      "",
-      "numeric"
-    );
-  };
-
-  const handleWithdraw = () => {
-    Alert.prompt(
-      "Withdraw Money",
-      "Enter amount to withdraw",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Withdraw",
-          onPress: (amount) => {
-            const numAmount = parseFloat(amount || "0");
-            if (numAmount > 0 && numAmount <= walletBalance) {
-              setWalletBalance(prev => prev - numAmount);
-              Alert.alert("Success", `$${numAmount.toFixed(2)} withdrawn from your wallet!`);
-            } else if (numAmount > walletBalance) {
-              Alert.alert("Error", "Insufficient balance!");
+              setIsLoading(true);
+              try {
+                const response = await fetch('http://localhost:3000/api/wallet/add-money', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    amount: numAmount,
+                    description: 'Money added via app',
+                  }),
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                  Alert.alert("Success", `₹${numAmount.toFixed(0)} added to your wallet!`);
+                  fetchWalletBalance(); // Refresh balance
+                } else {
+                  Alert.alert("Error", data.message || "Failed to add money");
+                }
+              } catch (error) {
+                Alert.alert("Error", "Network error. Please try again.");
+              } finally {
+                setIsLoading(false);
+              }
+            } else {
+              Alert.alert("Error", "Please enter a valid amount");
             }
           },
         },
@@ -76,17 +137,26 @@ const Profile = () => {
     },
     {
       id: 3,
+      title: "My Bookings",
+      subtitle: `${bookings.length} total bookings`,
+      icon: "bookmark-outline",
+      onPress: () => {
+        if (bookings.length === 0) {
+          Alert.alert("No Bookings", "You haven't made any bookings yet.");
+        } else {
+          const bookingList = bookings.slice(0, 5).map((booking: any, index) => 
+            `${index + 1}. ${booking.parkingSpot.name} - ₹${booking.totalAmount}`
+          ).join('\n');
+          Alert.alert("Recent Bookings", bookingList + (bookings.length > 5 ? '\n...and more' : ''));
+        }
+      },
+    },
+    {
+      id: 4,
       title: "Notifications",
       subtitle: "Manage notification preferences",
       icon: "notifications-outline",
       onPress: () => Alert.alert("Notifications", "Coming soon!"),
-    },
-    {
-      id: 4,
-      title: "Favorites",
-      subtitle: "Your saved parking spots",
-      icon: "heart-outline",
-      onPress: () => Alert.alert("Favorites", "Coming soon!"),
     },
     {
       id: 5,
@@ -106,151 +176,84 @@ const Profile = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Fixed Header */}
-      <Text style={styles.header}>Account</Text>
-
       <ScrollView 
         style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={{
-                  uri: user?.externalAccounts[0]?.imageUrl ?? user?.imageUrl,
-                }}
-                style={styles.avatar}
-              />
-              <TouchableOpacity style={styles.editAvatarButton}>
-                <Ionicons name="camera" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>
-                {user?.firstName} {user?.lastName}
-              </Text>
-              <Text style={styles.profileEmail}>
-                {user?.primaryEmailAddress?.emailAddress}
-              </Text>
+              <View style={styles.avatarContainer}>
+                <Text style={styles.avatarText}>
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </Text>
+              </View>
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{user?.name || 'User'}</Text>
+                <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
+              </View>
             </View>
           </View>
-          
-          {/* Edit Profile Button */}
-          <TouchableOpacity 
-            style={styles.editProfileButton}
-            onPress={() => Alert.alert("Edit Profile", "Profile editing coming soon!")}
-          >
-            <Ionicons name="create-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.editProfileText}>Edit Profile</Text>
-          </TouchableOpacity>
         </View>
 
-        {/* Wallet Card */}
-        <View style={styles.walletCard}>
-          <View style={styles.walletContent}>
+        {/* Wallet Section */}
+        <View style={styles.walletSection}>
+          <View style={styles.walletCard}>
             <View style={styles.walletHeader}>
-              <View style={styles.walletIconBadge}>
-                <Ionicons name="wallet" size={28} color="#4CAF50" />
-              </View>
-              <View style={styles.walletBalanceContainer}>
-                <Text style={styles.walletLabel}>Wallet Balance</Text>
-                <Text style={styles.walletBalance}>${walletBalance.toFixed(2)}</Text>
-              </View>
+              <Text style={styles.walletTitle}>Wallet Balance</Text>
+              <TouchableOpacity onPress={fetchWalletBalance}>
+                <Ionicons name="refresh" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
             </View>
-
+            <Text style={styles.walletBalance}>₹{walletData.balance.toFixed(2)}</Text>
+            {walletData.lockedBalance > 0 && (
+              <Text style={styles.lockedBalance}>
+                Locked: ₹{walletData.lockedBalance.toFixed(2)}
+              </Text>
+            )}
             <View style={styles.walletActions}>
               <TouchableOpacity 
-                style={styles.walletActionButton}
+                style={styles.walletButton} 
                 onPress={handleAddMoney}
+                disabled={isLoading}
               >
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name="add-circle" size={20} color="#4CAF50" />
-                </View>
-                <Text style={styles.walletActionText}>Add Money</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.walletActionButton}
-                onPress={handleWithdraw}
-              >
-                <View style={styles.actionIconContainer}>
-                  <Ionicons name="arrow-up-circle" size={20} color="#4CAF50" />
-                </View>
-                <Text style={styles.walletActionText}>Withdraw</Text>
+                <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.walletButtonText}>Add Money</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="time-outline" size={28} color="#4CAF50" />
-            <Text style={styles.statValue}>24</Text>
-            <Text style={styles.statLabel}>Total Bookings</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <Ionicons name="star" size={28} color="#FFB800" />
-            <Text style={styles.statValue}>4.8</Text>
-            <Text style={styles.statLabel}>Your Rating</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Ionicons name="cash-outline" size={28} color="#4285F4" />
-            <Text style={styles.statValue}>$285</Text>
-            <Text style={styles.statLabel}>Total Spent</Text>
           </View>
         </View>
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>General</Text>
           {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
+            <TouchableOpacity 
+              key={item.id} 
+              style={styles.menuItem} 
               onPress={item.onPress}
             >
-              <View style={styles.menuIconContainer}>
-                <Ionicons name={item.icon as any} size={24} color="#4CAF50" />
+              <View style={styles.menuItemLeft}>
+                <View style={styles.menuIconContainer}>
+                  <Ionicons name={item.icon as any} size={24} color="#FFFFFF" />
+                </View>
+                <View style={styles.menuItemContent}>
+                  <Text style={styles.menuItemTitle}>{item.title}</Text>
+                  <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
+                </View>
               </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
+              <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Logout Button */}
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={() => Alert.alert("Logout", "Are you sure you want to logout?", [
-            { text: "Cancel", style: "cancel" },
-            { 
-              text: "Logout", 
-              style: "destructive",
-              onPress: async () => {
-                try {
-                  await signOut();
-                } catch (error) {
-                  console.error("Logout error:", error);
-                  Alert.alert("Error", "Failed to logout. Please try again.");
-                }
-              }
-            }
-          ])}
-        >
-          <Ionicons name="log-out-outline" size={24} color="#EA4335" />
-          <Text style={styles.logoutText}>Logout</Text>
+        {/* Sign Out Button */}
+        <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
+          <Ionicons name="log-out-outline" size={24} color="#ff4757" />
+          <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
-
-        {/* App Version */}
-        <Text style={styles.versionText}>ParkEasy v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -259,272 +262,159 @@ const Profile = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#161616",
+    backgroundColor: '#161616',
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   header: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginTop: 8,
-    marginBottom: 16,
+    backgroundColor: '#161616',
     paddingHorizontal: 20,
-    backgroundColor: "#161616",
+    paddingVertical: 30,
   },
-  profileCard: {
-    backgroundColor: "#292929",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+  headerContent: {
+    alignItems: 'center',
   },
-  profileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+  profileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
   },
   avatarContainer: {
-    position: "relative",
-    marginRight: 16,
-  },
-  avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 3,
-    borderColor: "#4CAF50",
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20,
   },
-  editAvatarButton: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#4CAF50",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#292929",
+  avatarText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
-  profileInfo: {
+  userInfo: {
     flex: 1,
   },
-  profileName: {
+  userName: {
     fontSize: 24,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginBottom: 6,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 5,
   },
-  profileEmail: {
-    fontSize: 14,
-    color: "#8E8E93",
+  userEmail: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.8,
   },
-  profilePhone: {
-    fontSize: 14,
-    color: "#8E8E93",
-  },
-  editProfileButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#3A3A3C",
-    paddingVertical: 12,
+  walletSection: {
     paddingHorizontal: 20,
-    borderRadius: 10,
-    marginTop: 16,
-    gap: 8,
-  },
-  editProfileText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  walletCard: {
-    marginBottom: 16,
-    borderRadius: 20,
-    backgroundColor: "#292929",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  walletContent: {
-    padding: 20,
-  },
-  walletGradient: {
-    padding: 24,
-  },
-  walletHeader: {
-    flexDirection: "row",
-    alignItems: "center",
     marginBottom: 20,
   },
-  walletIconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(76, 175, 80, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
+  walletCard: {
+    backgroundColor: '#2A2A2A',
+    padding: 20,
+    borderRadius: 16,
   },
-  walletBalanceContainer: {
-    flex: 1,
+  walletHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  walletLabel: {
-    fontSize: 14,
-    color: "#8E8E93",
-    marginBottom: 4,
-    fontWeight: "500",
+  walletTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   walletBalance: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 5,
   },
-  walletIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
+  lockedBalance: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginBottom: 15,
   },
   walletActions: {
-    flexDirection: "row",
-    gap: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
-  walletActionButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    backgroundColor: "#3A3A3C",
-    borderRadius: 12,
-    gap: 8,
+  walletButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3A3A3A',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-  actionIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(76, 175, 80, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-  },
-  walletDivider: {
-    width: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  walletActionText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 24,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#292929",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#8E8E93",
-    textAlign: "center",
+  walletButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   menuSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    marginBottom: 12,
-    marginLeft: 4,
+    paddingHorizontal: 20,
   },
   menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#292929",
-    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#2A2A2A',
     padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 10,
+    borderRadius: 16,
   },
-  menuIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(76, 175, 80, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  menuContent: {
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  menuTitle: {
+  menuIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3A3A3A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  menuItemContent: {
+    flex: 1,
+  },
+  menuItemTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    marginBottom: 4,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 2,
   },
-  menuSubtitle: {
-    fontSize: 13,
-    color: "#8E8E93",
+  menuItemSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.7,
   },
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(234, 67, 53, 0.15)",
+  signOutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2A2A2A',
+    marginHorizontal: 20,
+    marginVertical: 20,
+    padding: 16,
     borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
-    gap: 12,
+    borderWidth: 1,
+    borderColor: '#ff4757',
   },
-  logoutText: {
+  signOutText: {
+    marginLeft: 8,
     fontSize: 16,
-    fontWeight: "600",
-    color: "#EA4335",
-  },
-  versionText: {
-    fontSize: 12,
-    color: "#8E8E93",
-    textAlign: "center",
-    marginBottom: 100,
+    fontWeight: '600',
+    color: '#ff4757',
   },
 });
 
