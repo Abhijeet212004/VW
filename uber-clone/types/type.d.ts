@@ -12,6 +12,7 @@ declare interface Driver {
 
 declare interface ParkingSpot {
     id: number;
+    spotId?: string; // UUID from backend
     name: string;
     address: string;
     latitude: number;
@@ -21,9 +22,23 @@ declare interface ParkingSpot {
     total_spots: number;
     is_covered: boolean;
     has_security: boolean;
+    has_ev_charging?: boolean;
     rating: number;
     distance?: number;
     image_url?: string;
+    
+    // ML-powered recommendation fields
+    recommendationScore?: number; // 0-100
+    predictedAvailability?: number; // 0-1
+    mlConfidence?: number; // 0-1
+    estimatedTravelTime?: number; // minutes
+    scoreBreakdown?: {
+        distanceScore: number;
+        availabilityScore: number;
+        mlPredictionScore: number;
+        priceScore: number;
+        amenitiesScore: number;
+    };
 }
 
 declare interface MarkerData {

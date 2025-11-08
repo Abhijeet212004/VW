@@ -31,14 +31,33 @@ const ParkingCard = ({ parking, onPress }: ParkingCardProps) => {
             {parking.address}
           </Text>
 
+          {/* ML Recommendation Score Badge */}
+          {parking.recommendationScore !== undefined && (
+            <View style={styles.scoreBadge}>
+              <Text style={styles.scoreText}>
+                🎯 Score: {parking.recommendationScore}/100
+              </Text>
+              {parking.mlConfidence !== undefined && (
+                <Text style={styles.confidenceText}>
+                  {' '}• {Math.round(parking.mlConfidence * 100)}% confident
+                </Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.infoRow}>
             <View style={styles.priceContainer}>
               <Text style={styles.price}>
-                ${parking.price_per_hour}/hr
+                ₹{parking.price_per_hour}/hr
               </Text>
               {parking.distance && (
                 <Text style={styles.distance}>
                   • {parking.distance.toFixed(1)} km
+                </Text>
+              )}
+              {parking.estimatedTravelTime && (
+                <Text style={styles.distance}>
+                  • ~{parking.estimatedTravelTime} min
                 </Text>
               )}
             </View>
@@ -59,6 +78,18 @@ const ParkingCard = ({ parking, onPress }: ParkingCardProps) => {
             </View>
           </View>
 
+          {/* Predicted Availability */}
+          {parking.predictedAvailability !== undefined && (
+            <View style={styles.predictionRow}>
+              <Text style={styles.predictionLabel}>
+                🤖 Predicted availability:
+              </Text>
+              <Text style={styles.predictionValue}>
+                {Math.round(parking.predictedAvailability * 100)}%
+              </Text>
+            </View>
+          )}
+
           <View style={styles.features}>
             {parking.is_covered && (
               <View style={styles.coveredBadge}>
@@ -68,6 +99,11 @@ const ParkingCard = ({ parking, onPress }: ParkingCardProps) => {
             {parking.has_security && (
               <View style={styles.securityBadge}>
                 <Text style={styles.securityText}>Secure</Text>
+              </View>
+            )}
+            {parking.has_ev_charging && (
+              <View style={styles.evBadge}>
+                <Text style={styles.evText}>EV Charging</Text>
               </View>
             )}
           </View>
@@ -202,15 +238,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    marginRight: 8,
   },
   securityText: {
     fontSize: 12,
     color: "#16a34a",
   },
+  evBadge: {
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  evText: {
+    fontSize: 12,
+    color: "#d97706",
+  },
   arrow: {
     width: 16,
     height: 16,
     transform: [{ rotate: "270deg" }],
+  },
+  scoreBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  scoreText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#16a34a",
+  },
+  confidenceText: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  predictionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  predictionLabel: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginRight: 4,
+  },
+  predictionValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#059669",
   },
 });
 

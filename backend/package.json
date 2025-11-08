@@ -11,8 +11,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "clerk:list": "ts-node scripts/clerk-users.ts list",
-    "clerk:delete": "ts-node scripts/clerk-users.ts delete"
-    ,"clear:parking-data": "ts-node scripts/clear-parking-data.ts"
+    "clerk:delete": "ts-node scripts/clerk-users.ts delete",
+    "clear:parking-data": "ts-node scripts/clear-parking-data.ts",
+    "seed:parking": "ts-node scripts/seed-parking-spots.ts"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.13",

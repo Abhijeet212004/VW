@@ -7,7 +7,7 @@ import ParkingMap from "@/components/ParkingMap";
 import DestinationSheet from "@/components/DestinationSheet";
 import { icons } from "@/constants";
 import { useLocationStore, useParkingStore } from "@/store";
-import { getParkingSpotsNearLocation, convertToMarkerData } from "@/lib/parking";
+import { getParkingSpotsNearLocation, getParkingRecommendations, convertToMarkerData } from "@/lib/parking";
 
 const FindParking = () => {
   const { userAddress, userLatitude, userLongitude } = useLocationStore();
@@ -31,6 +31,7 @@ const FindParking = () => {
       console.log('Fetching parking spots for PICT:', lat, lon);
       
       try {
+        // Use simple location-based search on initial load
         const spots = await getParkingSpotsNearLocation(lat, lon);
         console.log('Fetched spots:', spots.length);
         console.log('First spot:', spots[0]);
@@ -57,8 +58,9 @@ const FindParking = () => {
     longitude: number;
     address: string;
   }) => {
-    console.log('=== SEARCH TRIGGERED ===');
-    console.log('Search location:', location);
+    console.log('=== SEARCH TRIGGERED - Using ML Recommendations ===');
+    console.log('User location:', userLatitude, userLongitude);
+    console.log('Destination:', location);
     
     // Set the searched location to trigger map animation
     setSearchedLocation({
@@ -66,20 +68,40 @@ const FindParking = () => {
       longitude: location.longitude,
     });
     
-    // Load parking spots near the searched location
+    // Load smart parking recommendations using ML
     try {
-      console.log('Fetching parking spots for:', location.latitude, location.longitude);
-      const spots = await getParkingSpotsNearLocation(
-        location.latitude,
-        location.longitude
-      );
-      console.log('Got spots from API:', spots.length);
-      const markers = convertToMarkerData(spots);
-      console.log('Setting parking spots, markers count:', markers.length);
-      setParkingSpots(markers);
-      console.log('=== SEARCH COMPLETE ===');
+      console.log('Fetching ML-powered parking recommendations...');
+      
+      // Use ML recommendations if we have both user and destination locations
+      if (userLatitude && userLongitude) {
+        const recommendations = await getParkingRecommendations(
+          userLatitude,
+          userLongitude,
+          location.latitude,
+          location.longitude,
+          'car', // TODO: Get from user vehicle preferences
+          2 // radiusKm
+        );
+        
+        console.log('Got ML recommendations:', recommendations.length);
+        const markers = convertToMarkerData(recommendations);
+        console.log('Setting recommended parking spots, markers count:', markers.length);
+        setParkingSpots(markers);
+        console.log('=== ML RECOMMENDATIONS COMPLETE ===');
+      } else {
+        // Fallback to simple location search if user location unavailable
+        console.log('User location unavailable, falling back to simple search');
+        const spots = await getParkingSpotsNearLocation(
+          location.latitude,
+          location.longitude
+        );
+        console.log('Got spots from simple search:', spots.length);
+        const markers = convertToMarkerData(spots);
+        setParkingSpots(markers);
+        console.log('=== SIMPLE SEARCH COMPLETE ===');
+      }
     } catch (error) {
-      console.error("Error loading parking spots for location:", error);
+      console.error("Error loading parking recommendations:", error);
     }
   };
 
