@@ -1,9 +1,12 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, Platform } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, Platform, Animated } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from "react-native-maps";
 import { icons, images } from "@/constants";
 import * as Location from "expo-location";
+import { GestureHandlerRootView, PanGestureHandler } from 'react-native-gesture-handler';
+
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY || 'AIzaSyDWmZkfE6DvnNaf3nbPjgq8uOmBMg3d7_c';
 
 const ParkingNavigation = () => {
   const params = useLocalSearchParams();
@@ -37,11 +40,118 @@ const ParkingNavigation = () => {
 
   const [distance, setDistance] = useState("2.1");
   const [duration, setDuration] = useState("8");
+  const [routeCoordinates, setRouteCoordinates] = useState<any[]>([]);
+  const [currentInstruction, setCurrentInstruction] = useState("Turn left");
+  const [distanceToTurn, setDistanceToTurn] = useState("60 m");
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [routeSteps, setRouteSteps] = useState<any[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [locationSubscription, setLocationSubscription] = useState<any>(null);
+  const [carHeading, setCarHeading] = useState(0);
+  const [previousLocation, setPreviousLocation] = useState<any>(null);
+  const [bottomSheetHeight] = useState(new Animated.Value(300));
+  const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false);
   const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     getUserLocation();
+    return () => {
+      // Cleanup location subscription on unmount
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
   }, []);
+
+  useEffect(() => {
+    if (isNavigating) {
+      startLocationTracking();
+    } else {
+      stopLocationTracking();
+    }
+  }, [isNavigating]);
+
+  const getDirections = async (origin: any, destination: any) => {
+    try {
+      console.log('Fetching directions with API key:', GOOGLE_MAPS_API_KEY ? 'Available' : 'Missing');
+      
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=${GOOGLE_MAPS_API_KEY}&mode=driving`
+      );
+      const data = await response.json();
+      
+      console.log('Directions API response status:', data.status);
+      
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        const leg = route.legs[0];
+        
+        // Update distance and duration
+        setDistance((leg.distance.value / 1000).toFixed(1));
+        setDuration(Math.ceil(leg.duration.value / 60).toString());
+        
+        // Decode polyline to get route coordinates
+        const points = decodePolyline(route.overview_polyline.points);
+        setRouteCoordinates(points);
+        
+        console.log('Route coordinates loaded:', points.length, 'points');
+        
+        // Store all route steps for navigation
+        if (leg.steps && leg.steps.length > 0) {
+          setRouteSteps(leg.steps);
+          const firstStep = leg.steps[0];
+          const cleanInstruction = firstStep.html_instructions.replace(/<[^>]*>/g, '');
+          setCurrentInstruction(cleanInstruction);
+          setDistanceToTurn(firstStep.distance.text);
+        }
+      } else {
+        console.log('No routes found, using fallback');
+        // Fallback to straight line
+        setRouteCoordinates([origin, destination]);
+      }
+    } catch (error) {
+      console.error('Error fetching directions:', error);
+      // Fallback to straight line
+      setRouteCoordinates([origin, destination]);
+    }
+  };
+
+  const decodePolyline = (encoded: string) => {
+    const points = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < len) {
+      let b;
+      let shift = 0;
+      let result = 0;
+      do {
+        b = encoded.charAt(index++).charCodeAt(0) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlat = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.charAt(index++).charCodeAt(0) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
+    }
+    return points;
+  };
 
   const getUserLocation = async () => {
     try {
@@ -55,6 +165,9 @@ const ParkingNavigation = () => {
           longitude: location.coords.longitude,
         };
         setUserLocation(userCoords);
+        
+        // Get directions from current location to destination
+        await getDirections(userCoords, destinationCoords);
         
         // Fit map to show both markers
         setTimeout(() => {
@@ -75,16 +188,146 @@ const ParkingNavigation = () => {
     router.back();
   };
 
-  const handleStartNavigation = () => {
-    // Open Google Maps or Apple Maps for navigation
-    const scheme = Platform.select({ ios: 'maps:', android: 'geo:' });
-    const url = Platform.select({
-      ios: `maps:?daddr=${destinationCoords.latitude},${destinationCoords.longitude}`,
-      android: `geo:${destinationCoords.latitude},${destinationCoords.longitude}?q=${destinationCoords.latitude},${destinationCoords.longitude}(${parkingName})`,
-    });
+  const startLocationTracking = async () => {
+    try {
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 1000, // Update every second
+          distanceInterval: 5, // Update every 5 meters
+        },
+        (location) => {
+          const newLocation = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+          
+          // Calculate car heading based on movement
+          if (previousLocation) {
+            const heading = calculateBearing(previousLocation, newLocation);
+            setCarHeading(heading);
+          }
+          
+          setPreviousLocation(userLocation);
+          setUserLocation(newLocation);
+          
+          // Update navigation instructions based on current location
+          updateNavigationInstructions(newLocation);
+          
+          // Follow user location on map with smooth animation
+          if (mapRef.current) {
+            mapRef.current.animateCamera({
+              center: {
+                latitude: newLocation.latitude,
+                longitude: newLocation.longitude,
+              },
+              zoom: 18,
+              heading: carHeading,
+              pitch: 60,
+            }, { duration: 1000 });
+          }
+        }
+      );
+      setLocationSubscription(subscription);
+    } catch (error) {
+      console.error('Error starting location tracking:', error);
+    }
+  };
+
+  const stopLocationTracking = () => {
+    if (locationSubscription) {
+      locationSubscription.remove();
+      setLocationSubscription(null);
+    }
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI/180;
+    const φ2 = lat2 * Math.PI/180;
+    const Δφ = (lat2-lat1) * Math.PI/180;
+    const Δλ = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distance in meters
+  };
+
+  const calculateBearing = (start: any, end: any) => {
+    const startLat = start.latitude * Math.PI / 180;
+    const startLng = start.longitude * Math.PI / 180;
+    const endLat = end.latitude * Math.PI / 180;
+    const endLng = end.longitude * Math.PI / 180;
+
+    const dLng = endLng - startLng;
+
+    const y = Math.sin(dLng) * Math.cos(endLat);
+    const x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+
+    let bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360;
+  };
+
+  const updateNavigationInstructions = (currentLocation: any) => {
+    if (routeSteps.length === 0 || currentStepIndex >= routeSteps.length) return;
+
+    const currentStep = routeSteps[currentStepIndex];
+    const stepEndLocation = currentStep.end_location;
     
-    // For now, just show an alert or you can use Linking.openURL(url)
-    console.log("Starting navigation to:", parkingName);
+    // Calculate distance to current step's end point
+    const distanceToStepEnd = calculateDistance(
+      currentLocation.latitude,
+      currentLocation.longitude,
+      stepEndLocation.lat,
+      stepEndLocation.lng
+    );
+
+    // If we're close to the step end (within 20 meters), move to next step
+    if (distanceToStepEnd < 20 && currentStepIndex < routeSteps.length - 1) {
+      const nextStepIndex = currentStepIndex + 1;
+      setCurrentStepIndex(nextStepIndex);
+      
+      const nextStep = routeSteps[nextStepIndex];
+      const cleanInstruction = nextStep.html_instructions.replace(/<[^>]*>/g, '');
+      setCurrentInstruction(cleanInstruction);
+      setDistanceToTurn(nextStep.distance.text);
+    } else {
+      // Update distance to current step
+      const distanceText = distanceToStepEnd > 1000 
+        ? `${(distanceToStepEnd / 1000).toFixed(1)} km`
+        : `${Math.round(distanceToStepEnd)} m`;
+      setDistanceToTurn(distanceText);
+    }
+
+    // Check if we've reached the destination (within 50 meters)
+    const distanceToDestination = calculateDistance(
+      currentLocation.latitude,
+      currentLocation.longitude,
+      destinationCoords.latitude,
+      destinationCoords.longitude
+    );
+
+    if (distanceToDestination < 50) {
+      setCurrentInstruction("You have arrived at your destination");
+      setDistanceToTurn("");
+      setIsNavigating(false);
+    }
+  };
+
+  const handleStartNavigation = () => {
+    setIsNavigating(true);
+    setCurrentStepIndex(0);
+    
+    // Reset to first instruction
+    if (routeSteps.length > 0) {
+      const firstStep = routeSteps[0];
+      const cleanInstruction = firstStep.html_instructions.replace(/<[^>]*>/g, '');
+      setCurrentInstruction(cleanInstruction);
+      setDistanceToTurn(firstStep.distance.text);
+    }
   };
 
   const handleEndParking = () => {
@@ -101,7 +344,24 @@ const ParkingNavigation = () => {
     { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
   ];
 
+  const toggleBottomSheet = () => {
+    const toValue = isBottomSheetExpanded ? 300 : 150;
+    Animated.spring(bottomSheetHeight, {
+      toValue,
+      useNativeDriver: false,
+      tension: 100,
+      friction: 8,
+    }).start();
+    setIsBottomSheetExpanded(!isBottomSheetExpanded);
+  };
+
+  const onGestureEvent = Animated.event(
+    [{ nativeEvent: { translationY: bottomSheetHeight } }],
+    { useNativeDriver: false }
+  );
+
   return (
+    <GestureHandlerRootView style={styles.container}>
     <SafeAreaView style={styles.container}>
       {/* Map View */}
       <MapView
@@ -117,12 +377,14 @@ const ParkingNavigation = () => {
         customMapStyle={mapStyle}
         showsUserLocation={false}
         showsMyLocationButton={false}
-        showsTraffic={false}
-        zoomEnabled={true}
-        scrollEnabled={true}
-        rotateEnabled={false}
+        showsTraffic={true}
+        zoomEnabled={!isNavigating}
+        scrollEnabled={!isNavigating}
+        rotateEnabled={isNavigating}
         pitchEnabled={false}
         toolbarEnabled={false}
+        followsUserLocation={isNavigating}
+        userLocationAnnotationTitle=""
       >
         {/* User Location with Car Icon */}
         <Marker
@@ -133,7 +395,7 @@ const ParkingNavigation = () => {
           <View style={styles.carMarkerContainer}>
             <Image 
               source={images.signUpCar} 
-              style={styles.carMarker}
+              style={[styles.carMarker, { transform: [{ rotate: `${carHeading}deg` }] }]}
               resizeMode="contain"
             />
           </View>
@@ -153,29 +415,37 @@ const ParkingNavigation = () => {
         </Marker>
 
         {/* Route Polyline */}
-        <Polyline
-          coordinates={[userLocation, destinationCoords]}
-          strokeColor="#4285F4"
-          strokeWidth={6}
-        />
+        {routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#4285F4"
+            strokeWidth={6}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
       </MapView>
 
-      {/* Top Navigation Banner */}
-      <View style={styles.topNavBanner}>
-        <View style={styles.topNavContent}>
-          <View style={styles.directionIconContainer}>
-            <Text style={styles.directionIcon}>↰</Text>
-          </View>
-          <View style={styles.navTextContainer}>
-            <Text style={styles.instructionText}>Turn left</Text>
-            <Text style={styles.distanceToTurn}>in 60 m</Text>
-          </View>
+      {/* Navigation Status Indicator */}
+      {isNavigating && (
+        <View style={styles.navigationStatus}>
+          <View style={styles.navigationDot} />
+          <Text style={styles.navigationStatusText}>NAVIGATING</Text>
         </View>
-        <Text style={styles.thenText}>Then →</Text>
+      )}
+
+      {/* Compact Navigation Banner */}
+      <View style={[styles.compactNavBanner, isNavigating && styles.compactNavBannerActive]}>
+        <Text style={styles.compactInstruction}>{currentInstruction}</Text>
+        <Text style={styles.compactDistance}>{distanceToTurn}</Text>
       </View>
 
-      {/* Bottom Info Card */}
-      <View style={styles.bottomCard}>
+      {/* Draggable Bottom Sheet */}
+      <PanGestureHandler onGestureEvent={onGestureEvent}>
+        <Animated.View style={[styles.bottomSheet, { height: bottomSheetHeight }]}>
+          <TouchableOpacity style={styles.dragHandle} onPress={toggleBottomSheet}>
+            <View style={styles.dragBar} />
+          </TouchableOpacity>
         {/* ETA and Distance */}
         <View style={styles.etaSection}>
           <View style={styles.etaRow}>
@@ -209,11 +479,17 @@ const ParkingNavigation = () => {
             <Text style={styles.exitButtonText}>Exit</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.navButton} onPress={handleStartNavigation}>
-            <Text style={styles.navButtonText}>Start</Text>
+          <TouchableOpacity 
+            style={[styles.navButton, isNavigating && styles.navButtonActive]} 
+            onPress={isNavigating ? () => setIsNavigating(false) : handleStartNavigation}
+          >
+            <Text style={styles.navButtonText}>
+              {isNavigating ? 'Stop' : 'Start'}
+            </Text>
           </TouchableOpacity>
         </View>
-      </View>
+        </Animated.View>
+      </PanGestureHandler>
 
       {/* Floating Back Button */}
       <TouchableOpacity 
@@ -238,6 +514,7 @@ const ParkingNavigation = () => {
         <Text style={styles.recenterIcon}>⌖</Text>
       </TouchableOpacity>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
@@ -292,63 +569,40 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "300",
   },
-  // Top Navigation Banner (Google Maps style)
-  topNavBanner: {
+  // Compact Navigation Banner
+  compactNavBanner: {
     position: "absolute",
     top: 60,
     left: 80,
     right: 20,
     backgroundColor: "#1C6758",
-    borderRadius: 16,
-    padding: 16,
-    paddingHorizontal: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  topNavContent: {
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  directionIconContainer: {
-    width: 48,
-    height: 48,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 16,
-  },
-  directionIcon: {
-    fontSize: 32,
-    color: "#FFFFFF",
+  compactInstruction: {
+    fontSize: 14,
     fontWeight: "600",
-  },
-  navTextContainer: {
-    flex: 1,
-  },
-  instructionText: {
-    fontSize: 24,
-    fontWeight: "700",
     color: "#FFFFFF",
-    marginBottom: 2,
-    letterSpacing: 0.3,
+    flex: 1,
+    marginRight: 8,
   },
-  distanceToTurn: {
-    fontSize: 15,
+  compactDistance: {
+    fontSize: 12,
     fontWeight: "500",
     color: "#FFFFFF",
     opacity: 0.9,
   },
-  thenText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    opacity: 0.85,
-    letterSpacing: 0.5,
+  compactNavBannerActive: {
+    backgroundColor: "#2E7D32",
   },
   // Car Marker
   carMarkerContainer: {
@@ -399,8 +653,8 @@ const styles = StyleSheet.create({
     borderTopColor: "#EA4335",
     marginTop: -4,
   },
-  // Bottom Card (Google Maps style)
-  bottomCard: {
+  // Draggable Bottom Sheet
+  bottomSheet: {
     position: "absolute",
     bottom: 0,
     left: 0,
@@ -408,7 +662,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1F1F1F",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingTop: 24,
+    paddingTop: 8,
     paddingBottom: 44,
     paddingHorizontal: 24,
     shadowColor: "#000",
@@ -416,6 +670,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 16,
     elevation: 16,
+  },
+  dragHandle: {
+    alignItems: "center",
+    paddingVertical: 8,
+    marginBottom: 16,
+  },
+  dragBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#3A3A3C",
+    borderRadius: 2,
   },
   // ETA Section
   etaSection: {
@@ -551,6 +816,41 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: 0.5,
   },
+  navButtonActive: {
+    backgroundColor: "#EA4335",
+    shadowColor: "#EA4335",
+  },
+  navigationStatus: {
+    position: "absolute",
+    top: 120,
+    right: 20,
+    backgroundColor: "rgba(76, 175, 80, 0.95)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    zIndex: 100,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  navigationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FFFFFF",
+    marginRight: 6,
+  },
+  navigationStatusText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+
 });
 
 export default ParkingNavigation;

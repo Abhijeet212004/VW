@@ -1,4 +1,4 @@
-import { useUser } from "@clerk/clerk-expo";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocalSearchParams } from "expo-router";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { Image, Text, View, StyleSheet, ScrollView } from "react-native";
@@ -13,7 +13,7 @@ import { ParkingSpot } from "@/types/type";
 import { getAllParkingSpots } from "@/lib/parking";
 
 const BookRide = () => {
-  const { user } = useUser();
+  const { user } = useAuth();
   const { userAddress, destinationAddress } = useLocationStore();
   const { drivers, selectedDriver } = useDriverStore();
 
@@ -97,8 +97,8 @@ const BookRide = () => {
           </View>
 
           <Payment
-            fullName={user?.fullName!}
-            email={user?.emailAddresses[0].emailAddress!}
+            fullName={user?.name!}
+            email={user?.email!}
             amount={driverDetails?.price!}
             driverId={driverDetails?.id}
             rideTime={driverDetails?.time!}

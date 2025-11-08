@@ -4,7 +4,13 @@ const prisma = new PrismaClient();
 export const slotDetailsRepository = {
   findSlot: async (criteria: { id?: string; parkingSpotId?: string; slotNumber?: number }) => {
     if (criteria.id) {
-      return await prisma.parkingSlot.findUnique({ where: { id: criteria.id } });
+      // First try to find by UUID
+      let slot = await prisma.parkingSlot.findUnique({ where: { id: criteria.id } });
+      if (slot) return slot;
+      
+      // If not found, try to find by permanentSlotId (e.g., "A-01")
+      slot = await prisma.parkingSlot.findUnique({ where: { permanentSlotId: criteria.id } });
+      if (slot) return slot;
     }
     if (criteria.parkingSpotId && criteria.slotNumber !== undefined) {
       return await prisma.parkingSlot.findFirst({ where: { parkingSpotId: criteria.parkingSpotId, slotNumber: criteria.slotNumber } });
@@ -35,5 +41,9 @@ export const slotDetailsRepository = {
 
   updateSlotStatus: async (slotId: string, status: SlotStatus) => {
     return await prisma.parkingSlot.update({ where: { id: slotId }, data: { status } });
+  },
+
+  countSlotsForParkingSpot: async (parkingSpotId: string) => {
+    return await prisma.parkingSlot.count({ where: { parkingSpotId, isActive: true } });
   },
 };

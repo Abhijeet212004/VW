@@ -1,37 +1,23 @@
 import { ParkingSpot, ParkingMarkerData } from "@/types/type";
 
-// Mock parking data - in a real app, this would come from an API
-const mockParkingSpots: ParkingSpot[] = [
-  // PICT Pune Area Parking Spots - Keeping only 2 spots
-  {
-    id: 1,
-    name: "PICT Main Campus Parking",
-    address: "Pune Institute of Computer Technology, Dhankawadi, Pune",
-    latitude: 18.5204,
-    longitude: 73.8567,
-    price_per_hour: 20,
-    available_spots: 45,
-    total_spots: 60,
-    is_covered: true,
-    has_security: true,
-    rating: 4.5,
-    image_url: "https://example.com/pict-main.jpg"
-  },
-  {
-    id: 2,
-    name: "Sinhagad Road Mall Parking",
-    address: "Sinhagad Road, Near PICT, Pune",
-    latitude: 18.5224,
-    longitude: 73.8587,
-    price_per_hour: 25,
-    available_spots: 120,
-    total_spots: 150,
-    is_covered: true,
-    has_security: true,
-    rating: 4.6,
-    image_url: "https://example.com/mall-parking.jpg"
-  }
-];
+const API_BASE_URL = "http://localhost:3000/api";
+
+// Transform backend data to frontend format
+const transformParkingSpot = (backendSpot: any): ParkingSpot => ({
+  id: backendSpot.id,
+  name: backendSpot.name,
+  address: backendSpot.address,
+  latitude: backendSpot.latitude,
+  longitude: backendSpot.longitude,
+  price_per_hour: backendSpot.pricePerHour,
+  available_spots: backendSpot.availableSpots,
+  total_spots: backendSpot.totalSpots,
+  is_covered: backendSpot.isCovered,
+  has_security: backendSpot.hasSecurity,
+  rating: backendSpot.rating,
+  image_url: backendSpot.imageUrl || "https://example.com/parking.jpg",
+  distance: backendSpot.distance
+});
 
 // Calculate distance between two coordinates using Haversine formula
 const calculateDistance = (
@@ -59,26 +45,35 @@ export const getParkingSpotsNearLocation = async (
   longitude: number,
   radius: number = 10 // radius in kilometers
 ): Promise<ParkingSpot[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  console.log(`Finding parking spots near: ${latitude}, ${longitude} within ${radius}km`);
-  
-  // Filter spots within radius and calculate distances
-  const nearbySpots = mockParkingSpots
-    .map(spot => ({
-      ...spot,
-      distance: calculateDistance(latitude, longitude, spot.latitude, spot.longitude)
-    }))
-    .filter(spot => spot.distance <= radius)
-    .sort((a, b) => a.distance - b.distance); // Sort by distance
-  
-  console.log(`Found ${nearbySpots.length} parking spots within ${radius}km`);
-  nearbySpots.forEach(spot => {
-    console.log(`- ${spot.name}: ${spot.distance.toFixed(2)}km away`);
-  });
-  
-  return nearbySpots;
+  try {
+    console.log(`Finding parking spots near: ${latitude}, ${longitude} within ${radius}km`);
+    
+    const response = await fetch(
+      `${API_BASE_URL}/parking-spot/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radius}`
+    );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to fetch parking spots');
+    }
+    
+    const spots = result.data.map(transformParkingSpot);
+    
+    console.log(`Found ${spots.length} parking spots within ${radius}km`);
+    spots.forEach(spot => {
+      console.log(`- ${spot.name}: ${spot.distance?.toFixed(2)}km away, ${spot.available_spots}/${spot.total_spots} available`);
+    });
+    
+    return spots;
+  } catch (error) {
+    console.error('Error fetching parking spots:', error);
+    return [];
+  }
 };
 
 export const convertToMarkerData = (spots: ParkingSpot[]): ParkingMarkerData[] => {
@@ -100,7 +95,22 @@ export const convertToMarkerData = (spots: ParkingSpot[]): ParkingMarkerData[] =
 };
 
 export const getAllParkingSpots = async (): Promise<ParkingSpot[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockParkingSpots;
+  try {
+    const response = await fetch(`${API_BASE_URL}/parking-spot/all`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to fetch parking spots');
+    }
+    
+    return result.data.map(transformParkingSpot);
+  } catch (error) {
+    console.error('Error fetching all parking spots:', error);
+    return [];
+  }
 };

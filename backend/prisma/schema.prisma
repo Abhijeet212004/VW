@@ -14,13 +14,15 @@ model User {
   name               String
   phone              String?
   profilePhoto       String?
+  password           String?            // For custom auth (without Clerk)
   verificationStatus VerificationStatus @default(PENDING)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  vehicles Vehicle[]
-  bookings Booking[]
-  wallet   Wallet?
+  vehicles       Vehicle[]
+  bookings       Booking[]
+  wallet         Wallet?
+  predictionLogs PredictionLog[]
 }
 
 model Vehicle {
@@ -83,6 +85,10 @@ model ParkingSpot {
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
 
+  // Relations
+  parkingAreaId           String?
+  parkingArea             ParkingArea?  @relation(fields: [parkingAreaId], references: [id])
+  
   bookings                Booking[]
   slots                   ParkingSlot[]
 }
@@ -256,4 +262,66 @@ enum SlotStatus {
   FREE
   OCCUPIED
   BLOCKED
+}
+
+// New models for enhanced parking prediction system
+model ParkingArea {
+  id          String   @id @default(uuid())
+  areaId      String   @unique // e.g., "main_gate", "sports_complex"
+  name        String   // e.g., "Main Gate Parking"
+  totalSlots  Int
+  latitude    Float
+  longitude   Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parkingSpots       ParkingSpot[]
+  predictionLogs     PredictionLog[]
+  occupancySnapshots OccupancySnapshot[]
+}
+
+model PredictionLog {
+  id                   String      @id @default(uuid())
+  userId               String
+  user                 User        @relation(fields: [userId], references: [id])
+  parkingAreaId        String
+  parkingArea          ParkingArea @relation(fields: [parkingAreaId], references: [id])
+  predictionType       PredictionType
+  inputData            Json        // Store all input parameters
+  predictedPercentage  Float       // Predicted availability percentage
+  actualPercentage     Float?      // Actual availability (for accuracy tracking)
+  confidence           String      // High, Medium, Low
+  userLocation         Json        // {lat, lng}
+  plannedArrivalTime   DateTime?
+  actualArrivalTime    DateTime?
+  modelVersion         String?     @default("1.0")
+  isAccurate           Boolean?    // Whether prediction was accurate
+  accuracyScore        Float?      // How close prediction was to actual
+  weatherCondition     String?
+  trafficDensity       Float?
+  createdAt            DateTime    @default(now())
+}
+
+model OccupancySnapshot {
+  id              String      @id @default(uuid())
+  parkingAreaId   String
+  parkingArea     ParkingArea @relation(fields: [parkingAreaId], references: [id])
+  totalSlots      Int
+  occupiedSlots   Int
+  freeSlots       Int
+  occupancyRate   Float       // Percentage
+  timestamp       DateTime    @default(now())
+  dataSource      String      @default("CV_SYSTEM") // CV_SYSTEM, MANUAL, SENSOR
+  weatherCondition String?
+  temperature     Float?
+  trafficDensity  Float?
+  isWeekend       Boolean     @default(false)
+  isHoliday       Boolean     @default(false)
+  eventNearby     Boolean     @default(false)
+}
+
+enum PredictionType {
+  SPOT_AVAILABILITY
+  AREA_RECOMMENDATION
 }

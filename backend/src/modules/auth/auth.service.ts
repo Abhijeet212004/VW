@@ -1,5 +1,6 @@
 import { User } from '@prisma/client';
 import { AuthRepository } from './auth.repository';
+import * as walletService from '../wallet/wallet.service';
 
 export class AuthService {
   private authRepository: AuthRepository;
@@ -47,6 +48,31 @@ export class AuthService {
       throw new Error('User not found');
     }
 
+    return user;
+  }
+
+  // Custom auth methods
+  async findUserByEmail(email: string): Promise<User | null> {
+    return this.authRepository.findUserByEmail(email);
+  }
+
+  async createCustomUser(data: {
+    name: string;
+    email: string;
+    password: string;
+  }): Promise<User> {
+    // Create user
+    const user = await this.authRepository.createCustomUser(data);
+    
+    // Create wallet for the user
+    try {
+      await walletService.createWalletForUser(user.id);
+      console.log(`💰 Wallet created for user: ${user.email}`);
+    } catch (error) {
+      console.error('Failed to create wallet for user:', error);
+      // Don't fail user creation if wallet creation fails
+    }
+    
     return user;
   }
 

@@ -5,8 +5,13 @@ import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import authRoutes from './modules/auth/auth.route';
 import vehicleRoutes from './modules/vehicle/vehicle.route';
+import walletRoutes from './modules/wallet/wallet.routes';
+import bookingRoutes from './modules/booking/booking.routes';
 import parkingSpotRoutes from './modules/parkingSpot/parkingSpot.route';
 import slotDetailsRoutes from './modules/slot_details/slot_details.route';
+import cvRoutes from './modules/cv/cv.route';
+import dashboardRoutes from './modules/dashboard/dashboard.route';
+import parkingPredictionRoutes from './routes/parkingPrediction';
 import { errorHandler } from './middlewares/error.middleware';
 import { swaggerSpec } from './config/swagger';
 
@@ -35,8 +40,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicle', vehicleRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/booking', bookingRoutes);
 app.use('/api/parking-spot', parkingSpotRoutes);
 app.use('/api/slot-details', slotDetailsRoutes);
+app.use('/api/cv', cvRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/parking', parkingPredictionRoutes);
 
 app.use(errorHandler);
 

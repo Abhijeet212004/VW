@@ -49,4 +49,26 @@ const router = Router();
 // POST /api/parking-spot/add
 router.post("/add", parkingSpotController.addParkingSpot);
 
+// GET /api/parking-spot/all
+router.get("/all", parkingSpotController.getAllParkingSpots);
+
+// GET /api/parking-spot/nearby
+router.get("/nearby", parkingSpotController.getParkingSpotsNearLocation);
+
+// GET /api/parking-spot/:id
+router.get("/:id", parkingSpotController.getParkingSpotById);
+
+// POST /api/parking-spot/predict
+router.post("/predict", parkingSpotController.predictParkingAvailability);
+
+// ML-Powered Routes
+// POST /api/parking-spot/predict-ml
+router.post("/predict-ml", parkingSpotController.predictWithML);
+
+// POST /api/parking-spot/recommend-ml
+router.post("/recommend-ml", parkingSpotController.recommendWithML);
+
+// GET /api/parking-spot/ml-health
+router.get("/ml-health", parkingSpotController.checkMLHealth);
+
 export default router;

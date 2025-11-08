@@ -1,9 +1,9 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 export const useApi = () => {
-  const { getToken } = useAuth();
+  const { token } = useAuth();
 
   const apiCall = async (
     endpoint: string,
@@ -11,8 +11,6 @@ export const useApi = () => {
     body?: any
   ) => {
     try {
-      const token = await getToken();
-      
       const headers: any = {
         'Content-Type': 'application/json',
       };

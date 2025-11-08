@@ -70,6 +70,22 @@ const ParkingCard = ({ parking, onPress }: ParkingCardProps) => {
                 <Text style={styles.securityText}>Secure</Text>
               </View>
             )}
+            <TouchableOpacity 
+              style={styles.slotsButton}
+              onPress={() => {
+                // Navigate to choose spot screen
+                const router = require('expo-router').router;
+                router.push({
+                  pathname: '/(root)/choose-spot',
+                  params: {
+                    parkingId: parking.id,
+                    parkingName: parking.name
+                  }
+                });
+              }}
+            >
+              <Text style={styles.slotsButtonText}>Choose Spot</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -211,6 +227,18 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     transform: [{ rotate: "270deg" }],
+  },
+  slotsButton: {
+    backgroundColor: "#3b82f6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  slotsButtonText: {
+    fontSize: 12,
+    color: "white",
+    fontWeight: "500",
   },
 });
 

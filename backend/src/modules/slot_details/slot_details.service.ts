@@ -12,14 +12,18 @@ export const slotDetailsService = {
   }) => {
     // Find slot by id or (parkingSpotId + slotNumber)
     let slot = await slotDetailsRepository.findSlot({ id: data.slotId, parkingSpotId: data.parkingSpotId, slotNumber: data.slotNumber });
-    // console.log(slot);
     
-    // If not found, create it when parkingSpotId and slotNumber are provided
+    // If not found, create it only if we have less than 55 slots for this parking spot
     if (!slot) {
       if (data.parkingSpotId && data.slotNumber !== undefined) {
-        slot = await slotDetailsRepository.createSlot({ id: data.slotId, parkingSpotId: data.parkingSpotId, slotNumber: data.slotNumber, status: data.status });
+        const existingSlotCount = await slotDetailsRepository.countSlotsForParkingSpot(data.parkingSpotId);
+        if (existingSlotCount < 55) {
+          slot = await slotDetailsRepository.createSlot({ id: data.slotId, parkingSpotId: data.parkingSpotId, slotNumber: data.slotNumber, status: data.status });
+        } else {
+          // If we already have 55 slots, don't create more
+          return { createdLog: null, updatedSlot: null };
+        }
       } else {
-        // If not enough info to create, return nulls
         return { createdLog: null, updatedSlot: null };
       }
     }

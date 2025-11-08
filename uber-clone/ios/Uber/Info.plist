@@ -89,28 +89,13 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
-    <key>UISceneManifest</key>
-    <dict>
-      <key>UIApplicationSupportsMultipleScenes</key>
-      <false/>
-      <key>UISceneConfigurations</key>
-      <dict>
-        <key>CPTemplateApplicationSceneSessionRoleApplication</key>
-        <array>
-          <dict>
-            <key>UISceneConfigurationName</key>
-            <string>CarPlay</string>
-            <key>UISceneDelegateClassName</key>
-            <string>RNCarPlaySceneDelegate</string>
-          </dict>
-        </array>
-      </dict>
-    </dict>
+
     <key>MKDirectionsApplicationSupportedModes</key>
     <array>
       <string>MKDirectionsModeCar</string>
     </array>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.navigation</string>
+
   </dict>
 </plist>
