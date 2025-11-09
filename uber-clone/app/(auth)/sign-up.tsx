@@ -1,20 +1,21 @@
 import { useState } from "react";
-import OAut from "@/components/OAuth";
 import { Link, router } from "expo-router";
 import { icons, images } from "@/constants";
-import { useSignUp } from "@clerk/clerk-expo";
+import { useAuth } from "@/contexts/AuthContext";
 import InputField from "@/components/InputField";
 import ReactNativeModal from "react-native-modal";
 import CustomButton from "@/components/CustomButton";
+import VehicleEntryModal from "@/components/VehicleEntryModal";
 import { Alert, Image, ScrollView, Text, View } from "react-native";
-import { fetchAPI } from "@/lib/fetch";
 
 const SignUp = () => {
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { signUp } = useAuth();
   const [showSuccessModal, setshowSuccessModal] = useState(false);
-  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  console.log("🔍 SignUp component - showSuccessModal:", showSuccessModal);
+  // Debug vehicle modal state changes
+  console.log('🚗 SignUp render - showVehicleModal:', showVehicleModal, 'showSuccessModal:', showSuccessModal);
 
   const [form, setform] = useState({
     name: "",
@@ -22,103 +23,26 @@ const SignUp = () => {
     password: "",
   });
 
-  const [verification, setVerification] = useState({
-    state: "default",
-    error: "",
-    code: "",
-  });
-
-  console.log("🔍 SignUp component - verification.state:", verification.state);
-
   const onSignUpPress = async () => {
-    if (!isLoaded) {
+    if (!form.name || !form.email || !form.password) {
+      Alert.alert("Error", "Please fill in all fields");
       return;
     }
 
+    setIsLoading(true);
     try {
-      await signUp.create({
-        emailAddress: form.email,
-        password: form.password,
-      });
-
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-
-      setVerification({
-        ...verification,
-
-        state: "pending",
-      });
-    } catch (err: any) {
-      Alert.alert("Error", err.errors[0].longMessage);
-    }
-  };
-
-  const onPressVerify = async () => {
-    if (!isLoaded) return;
-
-    try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
-        code: verification.code,
-      });
-
-      if (completeSignUp.status === "complete") {
-        console.log("✅ Clerk sign up completed successfully!");
-        
-        // Register user in backend database BEFORE activating session
-        const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
-        
-        try {
-          console.log("📡 Registering user in backend...");
-          
-          const response = await fetch(`${backendUrl}/api/auth/register`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              name: form.name,
-              email: form.email,
-              clerkId: completeSignUp.createdUserId,
-            }),
-          });
-
-          const data = await response.json();
-          
-          if (!response.ok) {
-            console.error('❌ Backend registration failed:', data);
-          } else {
-            console.log('✅ User successfully registered in backend:', data);
-          }
-        } catch (backendError) {
-          console.error('❌ Backend registration error:', backendError);
-        }
-
-        // Close verification modal first, then show success modal
-        setVerification({ ...verification, state: "default" });
-        
-        console.log("🎉 Closing verification modal and preparing success modal");
-        
-        // Wait a moment for verification modal to close, then show success modal
-        setTimeout(() => {
-          setshowSuccessModal(true);
-          console.log("✅ Setting showSuccessModal to TRUE");
-        }, 300);
-        
-        // Store session for later activation
-        setPendingSessionId(completeSignUp.createdSessionId);
+      const result = await signUp(form.name, form.email, form.password);
+      
+      if (result.success) {
+        setshowSuccessModal(true);
       } else {
-        setVerification({
-          ...verification,
-          error: "Verification Failed",
-          state: "failed",
-        });
+        Alert.alert("Sign Up Failed", result.message);
       }
-    } catch (err: any) {
-      setVerification({
-        ...verification,
-        error: err.errors[0].longMessage,
-        state: "failed",
-      });
+    } catch (error) {
+      console.error("Sign up error:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -131,26 +55,31 @@ const SignUp = () => {
             Create Your Account
           </Text>
         </View>
+
         <View className="p-5">
           <InputField
             label="Name"
-            placeholder="Enter Your Name"
+            placeholder="Enter your name"
             icon={icons.person}
             value={form.name}
             onChangeText={(value) => setform({ ...form, name: value })}
           />
+
           <InputField
             label="Email"
-            placeholder="Enter Your Email"
+            placeholder="Enter your email"
             icon={icons.email}
+            textContentType="emailAddress"
             value={form.email}
             onChangeText={(value) => setform({ ...form, email: value })}
           />
+
           <InputField
             label="Password"
-            placeholder="Enter Your Password"
+            placeholder="Enter your password"
             icon={icons.lock}
             secureTextEntry={true}
+            textContentType="password"
             value={form.password}
             onChangeText={(value) => setform({ ...form, password: value })}
           />
@@ -159,103 +88,55 @@ const SignUp = () => {
             title="Sign Up"
             onPress={onSignUpPress}
             className="mt-6"
+            disabled={isLoading}
           />
-
-          <OAut />
 
           <Link
             href="/sign-in"
-            className="text-lg text-center text-general-200 mt-6"
+            className="text-lg text-center text-general-200 mt-10"
           >
-            <Text>Already have an account? </Text>
-            <Text className="text-primary-500">LogIn</Text>
+            Already have an account?{" "}
+            <Text className="text-primary-500">Log In</Text>
           </Link>
         </View>
 
+        {/* Success Modal */}
         <ReactNativeModal
-          isVisible={verification.state === "pending"}
-          onModalHide={() => {
-            console.log("📋 Verification modal hidden. State:", verification.state);
-            if (verification.state === "success") {
-              console.log("✅ Setting showSuccessModal to TRUE");
-              setshowSuccessModal(true);
-            }
-          }}
-        >
-          <View className="bg-white px-7 py-9 rounded-2xl min-h-[300px]">
-            <Text className="text-2xl font-JakartaExtraBold mb-2">
-              verification
-            </Text>
-            <Text className="font-Jakarta mb-5">
-              We've sent a verification code to {form.email}
-            </Text>
-
-            <InputField
-              label="code"
-              icon={icons.lock}
-              placeholder="12345"
-              value={verification.code}
-              keyboardType="numeric"
-              onChangeText={(code) =>
-                setVerification({ ...verification, code })
-              }
-            />
-
-            {verification.error && (
-              <Text className="text-red-500 text-sm mt-1">
-                {verification.error}
-              </Text>
-            )}
-
-            <CustomButton
-              title="Verify Email"
-              onPress={onPressVerify}
-              className="mt-5 bg-success-500"
-            />
-          </View>
-        </ReactNativeModal>
-        <ReactNativeModal 
           isVisible={showSuccessModal}
-          backdropOpacity={0.7}
-          animationIn="zoomIn"
-          animationOut="zoomOut"
-          backdropTransitionOutTiming={0}
+          onBackdropPress={() => setshowSuccessModal(false)}
         >
           <View className="bg-white px-7 py-9 rounded-2xl min-h-[300px]">
             <Image
               source={images.check}
               className="w-[110px] h-[110px] mx-auto my-5"
             />
+
             <Text className="text-3xl font-JakartaBold text-center">
-              Welcome to ParkEasy! 🎉
+              Verified
             </Text>
+
             <Text className="text-base text-gray-400 font-Jakarta text-center mt-2">
-              Your account has been created successfully. Let's verify your vehicle to start parking!
+              You have successfully created your account.
             </Text>
 
             <CustomButton
-              title="Verify My Vehicle"
-              onPress={async () => {
+              title="Add Vehicle"
+              onPress={() => {
+                console.log('🚗 Add Vehicle button clicked');
                 setshowSuccessModal(false);
-                // Activate session now
-                if (pendingSessionId && setActive) {
-                  await setActive({ session: pendingSessionId });
-                }
+                console.log('✅ Success modal closed');
                 setTimeout(() => {
-                  router.replace("/(root)/scan-qr");
+                  console.log('🔄 Opening vehicle modal');
+                  setShowVehicleModal(true);
                 }, 300);
               }}
               className="mt-5"
             />
             
             <CustomButton
-              title="I'll Do This Later"
-              onPress={async () => {
+              title="Skip for now"
+              onPress={() => {
                 setshowSuccessModal(false);
-                // Activate session now
-                if (pendingSessionId && setActive) {
-                  await setActive({ session: pendingSessionId });
-                }
                 setTimeout(() => {
                   router.replace("/(root)/(tabs)/home");
                 }, 300);
@@ -265,13 +146,29 @@ const SignUp = () => {
             />
           </View>
         </ReactNativeModal>
+
+        <VehicleEntryModal
+          visible={showVehicleModal}
+          onClose={() => {
+            console.log('🚗 Vehicle modal closing');
+            setShowVehicleModal(false);
+            // Navigate to home after modal closes
+            setTimeout(() => {
+              console.log('🏠 Navigating to home');
+              router.replace("/(root)/(tabs)/home");
+            }, 300);
+          }}
+        />
+
+        {/* Debug: Test modal visibility */}
+        {showVehicleModal && (
+          <View style={{ position: 'absolute', top: 100, left: 20, backgroundColor: 'red', padding: 10, zIndex: 9999 }}>
+            <Text style={{ color: 'white' }}>Vehicle Modal State: TRUE</Text>
+          </View>
+        )}
       </View>
     </ScrollView>
   );
 };
 
 export default SignUp;
-
-function setVerification(arg0: any) {
-  throw new Error("Function not implemented.");
-}

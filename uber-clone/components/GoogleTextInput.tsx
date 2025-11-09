@@ -11,6 +11,7 @@ const GoogleTextInput = ({
   initialLocation,
   containerStyle,
   textInputBackgroundColor,
+  placeholder = "Search",
   handlePress,
   onFocus,
   onBlur,
@@ -21,7 +22,7 @@ const GoogleTextInput = ({
     >
       <GooglePlacesAutocomplete
         fetchDetails={true}
-        placeholder="Search"
+        placeholder={placeholder}
         debounce={200}
         styles={{
           textInputContainer: {

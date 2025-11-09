@@ -1,5 +1,4 @@
-import { useUser } from "@clerk/clerk-expo";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@/contexts/AuthContext";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useState, useEffect, useRef } from "react";
@@ -26,8 +25,7 @@ import { ParkingSpot } from "@/types/type";
 import { getParkingSpotsNearLocation, convertToMarkerData } from "@/lib/parking";
 
 const Home = () => {
-  const { user } = useUser();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   const { setUserLocation, setDestinationLocation, userLatitude, userLongitude, userAddress } = useLocationStore();
   const { parkingSpots, setParkingSpots, selectedParkingSpot, setSelectedParkingSpot } = useParkingStore();
@@ -170,7 +168,7 @@ const Home = () => {
       <SafeAreaView style={styles.container}>
         {/* Static Header with Car - Fixed at top */}
         <View style={styles.staticHeader}>
-          <Text style={styles.hiText}>Hi, {user?.firstName || 'User'}</Text>
+          <Text style={styles.hiText}>Hi, {user?.name || 'User'}</Text>
           
           {/* Animated Car starts from end of text */}
           <Animated.Image
@@ -257,10 +255,10 @@ const Home = () => {
                 </View>
               </TouchableOpacity>
 
-              {/* Book for Someone Else Card */}
+              {/* Predict Parking Availability Card */}
               <TouchableOpacity 
                 style={styles.featureCard}
-                onPress={() => router.push("/(root)/find-parking")}
+                onPress={() => router.push("/(root)/predict-parking")}
               >
                 <Image 
                   source={require("@/assets/images/2301.i607.012.S.m012.c12.self service isometric set.jpg")}
@@ -268,8 +266,8 @@ const Home = () => {
                   resizeMode="cover"
                 />
                 <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>Book for someone else →</Text>
-                  <Text style={styles.featureSubtitle}>Help friends & family park easily</Text>
+                  <Text style={styles.featureTitle}>Predict Parking Availability →</Text>
+                  <Text style={styles.featureSubtitle}>Check future parking availability</Text>
                 </View>
               </TouchableOpacity>
             </ScrollView>

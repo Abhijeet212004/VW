@@ -1,15 +1,14 @@
-import express, { Application, Request, Response } from "express";
-import cors from "cors";
-import helmet from "helmet";
-import dotenv from "dotenv";
-import swaggerUi from "swagger-ui-express";
-import authRoutes from "./modules/auth/auth.route";
-import vehicleRoutes from "./modules/vehicle/vehicle.route";
-import parkingSpotRoutes from "./modules/parkingSpot/parkingSpot.route";
-import slotDetailsRoutes from "./modules/slot_details/slot_details.route";
-import recommendationRoutes from "./modules/recommendation/recommendation.route";
-import { errorHandler } from "./middlewares/error.middleware";
-import { swaggerSpec } from "./config/swagger";
+import express, { Application, Request, Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import authRoutes from './modules/auth/auth.route';
+import vehicleRoutes from './modules/vehicle/vehicle.route';
+import parkingSpotRoutes from './modules/parkingSpot/parkingSpot.route';
+import slotDetailsRoutes from './modules/slot_details/slot_details.route';
+import { errorHandler } from './middlewares/error.middleware';
+import { swaggerSpec } from './config/swagger';
 
 dotenv.config();
 
@@ -38,11 +37,10 @@ app.use(
   })
 );
 
-app.use("/api/auth", authRoutes);
-app.use("/api/vehicle", vehicleRoutes);
-app.use("/api/parking-spot", parkingSpotRoutes);
-app.use("/api/slot-details", slotDetailsRoutes);
-app.use("/api/recommend-parking", recommendationRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/vehicle', vehicleRoutes);
+app.use('/api/parking-spot', parkingSpotRoutes);
+app.use('/api/slot-details', slotDetailsRoutes);
 
 app.use(errorHandler);
 

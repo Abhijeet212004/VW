@@ -197,3 +197,31 @@ export const deleteVehicle = async (id: string) => {
   
   return await vehicleRepository.deleteVehicle(id);
 };
+
+export const quickRegisterVehicle = async (userId: string, licensePlate: string, ownerName?: string) => {
+  // Check if vehicle already exists for this user
+  const existingVehicle = await vehicleRepository.findVehicleByRegistrationNumber(licensePlate);
+  
+  if (existingVehicle && existingVehicle.userId === userId) {
+    throw new Error('Vehicle with this license plate is already registered to you');
+  }
+  
+  // Create a simple vehicle record
+  const vehicleData = {
+    userId,
+    registrationNumber: licensePlate.toUpperCase(),
+    ownerName: ownerName || 'Unknown', // Use provided name or default
+    enteredName: ownerName || 'Unknown', // Use provided name or default
+    make: 'Unknown', // Will be updated later when verified
+    model: 'Unknown', // Will be updated later when verified
+    verificationStatus: 'PENDING' as VerificationStatus,
+    verificationMethod: 'MANUAL_ENTRY' as VerificationMethod,
+  };
+  
+  const vehicle = await vehicleRepository.createVehicle(vehicleData);
+  
+  return {
+    vehicle,
+    message: 'Vehicle registered successfully'
+  };
+};

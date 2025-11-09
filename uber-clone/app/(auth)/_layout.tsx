@@ -1,12 +1,15 @@
 import { Stack } from "expo-router";
 import { Redirect } from "expo-router";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Layout = () => {
-  const { isSignedIn } = useAuth();
+  const { user, isInSignupFlow } = useAuth();
 
-  // If already signed in, redirect to home
-  if (isSignedIn) {
+  console.log('🔍 Auth Layout - user:', !!user, 'isInSignupFlow:', isInSignupFlow);
+
+  // If already signed in and not in signup flow, redirect to home
+  if (user && !isInSignupFlow) {
+    console.log('🏠 Redirecting to home from auth layout');
     return <Redirect href="/(root)/(tabs)/home" />;
   }
 

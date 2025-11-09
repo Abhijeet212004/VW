@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { View, Text, Alert, ScrollView, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth } from '@/contexts/AuthContext';
 import { icons, images } from '@/constants';
 import InputField from '@/components/InputField';
 import CustomButton from '@/components/CustomButton';
 
 export default function VehicleRegistration() {
-  const { getToken } = useAuth();
+  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     registrationNumber: '',
@@ -33,7 +33,10 @@ export default function VehicleRegistration() {
       console.log("Registration Number:", formattedRegNumber);
       
       // Get Clerk session token
-      const token = await getToken();
+      if (!token) {
+        Alert.alert('Error', 'Please sign in to register your vehicle');
+        return;
+      }
       
       // Call backend to verify vehicle with RTO API
       const response = await fetch(`${backendUrl}/api/vehicle/verify-qr`, {

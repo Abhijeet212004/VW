@@ -1,41 +1,8 @@
 import { ParkingSpot, ParkingMarkerData } from "@/types/type";
 
-// Backend API URL - Update this to your backend URL
-const API_BASE_URL = 'http://localhost:3000/api';
-
-// Extended type for recommendation response
-interface ParkingRecommendation {
-  spotId: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  distanceFromDestination: number;
-  distanceFromUser: number;
-  estimatedTravelTime: number;
-  totalSlots: number;
-  currentFreeSlots: number;
-  currentOccupancyRate: number;
-  predictedOccupancyProbability: number;
-  predictedAvailability: number;
-  mlConfidence: number;
-  recommendationScore: number;
-  pricePerHour: number;
-  isCovered: boolean;
-  hasSecurity: boolean;
-  hasEVCharging: boolean;
-  rating: number;
-  scoreBreakdown: {
-    distanceScore: number;
-    availabilityScore: number;
-    mlPredictionScore: number;
-    priceScore: number;
-    amenitiesScore: number;
-  };
-}
-
-// Mock parking data as fallback
+// Mock parking data - in a real app, this would come from an API
 const mockParkingSpots: ParkingSpot[] = [
+  // PICT Pune Area Parking Spots - Keeping only 2 spots
   {
     id: 1,
     name: "PICT Main Campus Parking",
@@ -186,16 +153,26 @@ export const getParkingSpotsNearLocation = async (
   longitude: number,
   radius: number = 10
 ): Promise<ParkingSpot[]> => {
-  // For find-parking screen, use the smart recommendation API
-  // Use the search location as destination
-  return getParkingRecommendations(
-    latitude, // User at search location
-    longitude,
-    latitude, // Destination is same as user location for search
-    longitude,
-    'car',
-    radius
-  );
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  console.log(`Finding parking spots near: ${latitude}, ${longitude} within ${radius}km`);
+  
+  // Filter spots within radius and calculate distances
+  const nearbySpots = mockParkingSpots
+    .map(spot => ({
+      ...spot,
+      distance: calculateDistance(latitude, longitude, spot.latitude, spot.longitude)
+    }))
+    .filter(spot => spot.distance <= radius)
+    .sort((a, b) => a.distance - b.distance); // Sort by distance
+  
+  console.log(`Found ${nearbySpots.length} parking spots within ${radius}km`);
+  nearbySpots.forEach(spot => {
+    console.log(`- ${spot.name}: ${spot.distance.toFixed(2)}km away`);
+  });
+  
+  return nearbySpots;
 };
 
 export const convertToMarkerData = (spots: ParkingSpot[]): ParkingMarkerData[] => {
@@ -217,7 +194,22 @@ export const convertToMarkerData = (spots: ParkingSpot[]): ParkingMarkerData[] =
 };
 
 export const getAllParkingSpots = async (): Promise<ParkingSpot[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockParkingSpots;
+  try {
+    const response = await fetch(`${API_BASE_URL}/parking-spot/all`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to fetch parking spots');
+    }
+    
+    return result.data.map(transformParkingSpot);
+  } catch (error) {
+    console.error('Error fetching all parking spots:', error);
+    return [];
+  }
 };

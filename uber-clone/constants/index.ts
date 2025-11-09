@@ -100,3 +100,81 @@ export const onboarding = [
 export const data = {
     onboarding,
 };
+
+export const predefinedParkingSpots = [
+    {
+        id: 1,
+        ml_area: "pict_campus",
+        title: "PICT Campus Parking",
+        name: "Pune Institute of Computer Technology",
+        address: "Near Dhankawadi, Pune, Maharashtra 411043",
+        latitude: 18.5204,
+        longitude: 73.8567,
+        price_per_hour: 20,
+        total_spots: 55,
+        is_covered: false,
+        has_security: true,
+        rating: 4.2,
+        image_url: "https://example.com/pict-parking.jpg"
+    },
+    {
+        id: 2,
+        ml_area: "phoenix_mall",
+        title: "Phoenix Mall Parking",
+        name: "Phoenix MarketCity Pune",
+        address: "Viman Nagar, Pune, Maharashtra 411014",
+        latitude: 18.5679,
+        longitude: 73.9143,
+        price_per_hour: 30,
+        total_spots: 120,
+        is_covered: true,
+        has_security: true,
+        rating: 4.5,
+        image_url: "https://example.com/phoenix-parking.jpg"
+    },
+    {
+        id: 3,
+        ml_area: "amanora_mall",
+        title: "Amanora Mall Parking",
+        name: "Amanora Town Centre",
+        address: "Hadapsar, Pune, Maharashtra 411028",
+        latitude: 18.5018,
+        longitude: 73.9346,
+        price_per_hour: 25,
+        total_spots: 85,
+        is_covered: true,
+        has_security: true,
+        rating: 4.3,
+        image_url: "https://example.com/amanora-parking.jpg"
+    },
+    {
+        id: 4,
+        ml_area: "seasons_mall",
+        title: "Seasons Mall Parking",
+        name: "Seasons Mall Magarpatta",
+        address: "Magarpatta City, Hadapsar, Pune, Maharashtra 411013",
+        latitude: 18.5089,
+        longitude: 73.9260,
+        price_per_hour: 35,
+        total_spots: 95,
+        is_covered: true,
+        has_security: true,
+        rating: 4.4,
+        image_url: "https://example.com/seasons-parking.jpg"
+    },
+    {
+        id: 5,
+        ml_area: "kharadi_it_park",
+        title: "Kharadi IT Park",
+        name: "EON IT Park Kharadi",
+        address: "Kharadi, Pune, Maharashtra 411014",
+        latitude: 18.5593,
+        longitude: 73.9787,
+        price_per_hour: 15,
+        total_spots: 200,
+        is_covered: false,
+        has_security: true,
+        rating: 4.1,
+        image_url: "https://example.com/eon-parking.jpg"
+    }
+];

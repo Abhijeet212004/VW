@@ -18,31 +18,21 @@ const FindParking = () => {
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load parking spots immediately on mount - SIMPLIFIED
+  // Load parking spots and refresh every 5 seconds
   useEffect(() => {
     const loadParkingSpots = async () => {
-      console.log('=== FIND PARKING MOUNTED ===');
-      setIsLoading(true);
+      console.log('=== REFRESHING PARKING DATA ===');
       
       // Always use PICT coordinates for testing
       const lat = 18.5204;
       const lon = 73.8567;
       
-      console.log('Fetching parking spots for PICT:', lat, lon);
-      
       try {
         // Use simple location-based search on initial load
         const spots = await getParkingSpotsNearLocation(lat, lon);
-        console.log('Fetched spots:', spots.length);
-        console.log('First spot:', spots[0]);
-        
         const markers = convertToMarkerData(spots);
-        console.log('Converted markers:', markers.length);
-        console.log('First marker:', markers[0]);
-        
         setParkingSpots(markers);
-        console.log('Parking spots set in store!');
-        console.log('=== PARKING SPOTS LOADED ===');
+        console.log(`Updated: ${spots[0]?.available_spots}/${spots[0]?.total_spots} available`);
       } catch (error) {
         console.error("Error loading parking spots:", error);
       } finally {
@@ -51,7 +41,10 @@ const FindParking = () => {
     };
 
     loadParkingSpots();
-  }, []); // Run once on mount
+    // Refresh every 5 seconds for real-time updates
+    const interval = setInterval(loadParkingSpots, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLocationSearch = async (location: {
     latitude: number;

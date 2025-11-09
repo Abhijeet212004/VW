@@ -6,7 +6,8 @@ declare global {
     interface Request {
       auth?: {
         userId: string;
-        clerkId: string;
+        clerkId?: string;
+        email?: string;
       };
     }
   }

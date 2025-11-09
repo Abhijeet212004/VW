@@ -49,6 +49,30 @@ export const getMyVehicles = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+export const quickRegister = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.auth?.userId!;
+    const { licensePlate, ownerName } = req.body;
+    
+    if (!licensePlate) {
+      return res.status(400).json({
+        success: false,
+        message: 'License plate is required',
+      });
+    }
+    
+    const result = await vehicleService.quickRegisterVehicle(userId, licensePlate, ownerName);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle registered successfully',
+      data: result,
+    });
+  } catch (error: any) {
+    next(error);
+  }
+};
+
 export const getVehicleById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;

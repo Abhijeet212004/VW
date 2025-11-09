@@ -101,11 +101,22 @@ const ParkingCard = ({ parking, onPress }: ParkingCardProps) => {
                 <Text style={styles.securityText}>Secure</Text>
               </View>
             )}
-            {parking.has_ev_charging && (
-              <View style={styles.evBadge}>
-                <Text style={styles.evText}>EV Charging</Text>
-              </View>
-            )}
+            <TouchableOpacity 
+              style={styles.slotsButton}
+              onPress={() => {
+                // Navigate to choose spot screen
+                const router = require('expo-router').router;
+                router.push({
+                  pathname: '/(root)/choose-spot',
+                  params: {
+                    parkingId: parking.id,
+                    parkingName: parking.name
+                  }
+                });
+              }}
+            >
+              <Text style={styles.slotsButtonText}>Choose Spot</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -259,39 +270,17 @@ const styles = StyleSheet.create({
     height: 16,
     transform: [{ rotate: "270deg" }],
   },
-  scoreBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f0fdf4",
-    paddingHorizontal: 10,
+  slotsButton: {
+    backgroundColor: "#3b82f6",
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 8,
+    borderRadius: 12,
+    marginLeft: 8,
   },
-  scoreText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#16a34a",
-  },
-  confidenceText: {
+  slotsButtonText: {
     fontSize: 12,
-    color: "#6b7280",
-  },
-  predictionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  predictionLabel: {
-    fontSize: 13,
-    color: "#6b7280",
-    marginRight: 4,
-  },
-  predictionValue: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#059669",
+    color: "white",
+    fontWeight: "500",
   },
 });
 

@@ -76,4 +76,28 @@ export class AuthRepository {
       data: { wallet: { update: { isActive: false } } },
     });
   }
+
+  // Custom auth method for users without Clerk
+  async createCustomUser(data: {
+    name: string;
+    email: string;
+    password: string;
+  }): Promise<User> {
+    return prisma.user.create({
+      data: {
+        ...data,
+        clerkId: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
+        verificationStatus: VerificationStatus.PENDING,
+        wallet: {
+          create: {
+            balance: 0,
+            lockedBalance: 0,
+          },
+        },
+      },
+      include: {
+        wallet: true,
+      },
+    });
+  }
 }

@@ -1,71 +1,54 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, SafeAreaView } from "react-native";
 import { icons, images } from "@/constants";
-
-// Parking spot grid configuration
-const FLOORS = [
-  { id: 1, name: "1st Floor" },
-  { id: 2, name: "2nd Floor" },
-  { id: 3, name: "3rd Floor" },
-];
-
-// Generate parking spots for each floor
-const generateParkingSpots = (floor: number) => {
-  const rows = ["A", "B", "C"];
-  const spotsPerRow = 4;
-  const spots = [];
-  
-  for (const row of rows) {
-    for (let i = 1; i <= spotsPerRow; i++) {
-      const spotNumber = i + 10;
-      const isAvailable = Math.random() > 0.3; // 70% spots available
-      spots.push({
-        id: `${floor}-${row}-${spotNumber}`,
-        label: `${row}-${spotNumber}`,
-        row,
-        number: spotNumber,
-        isAvailable,
-        floor,
-      });
-    }
-  }
-  return spots;
-};
 
 const ChooseSpot = () => {
   const params = useLocalSearchParams();
   const parkingName = params.parkingName as string || "Parking Location";
   const parkingId = params.parkingId as string;
   
-  const [selectedFloor, setSelectedFloor] = useState(1);
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
-  const [parkingSpots] = useState(() => {
-    // Generate spots for all floors
-    const allSpots: any = {};
-    FLOORS.forEach(floor => {
-      allSpots[floor.id] = generateParkingSpots(floor.id);
-    });
-    return allSpots;
-  });
+  const [parkingSlots, setParkingSlots] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const currentFloorSpots = parkingSpots[selectedFloor];
+  useEffect(() => {
+    fetchParkingSlots();
+    const interval = setInterval(fetchParkingSlots, 3000);
+    return () => clearInterval(interval);
+  }, [parkingId]);
 
-  const handleSpotSelect = (spotId: string, isAvailable: boolean) => {
+  const fetchParkingSlots = async () => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/parking-spot/${parkingId}`);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setParkingSlots(result.data.realTimeSlots || []);
+        console.log(`Updated slots: ${result.data.availableSpots}/${result.data.totalSlots} available`);
+      }
+    } catch (error) {
+      console.error('Error fetching parking slots:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSpotSelect = (slotId: string, isAvailable: boolean) => {
     if (isAvailable) {
-      setSelectedSpot(spotId);
+      setSelectedSpot(slotId);
     }
   };
 
   const handleConfirmSpot = () => {
     if (selectedSpot) {
-      // Navigate to payment screen
+      const selectedSlot = parkingSlots.find((s: any) => s.id === selectedSpot);
       router.push({
         pathname: "/(root)/parking-payment",
         params: {
           parkingName,
           parkingId,
-          spotId: selectedSpot,
+          spotId: selectedSlot?.slotNumber || selectedSpot,
         }
       });
     }
@@ -75,89 +58,41 @@ const ChooseSpot = () => {
     router.back();
   };
 
-  // Group spots by row
-  const spotsByRow = currentFloorSpots.reduce((acc: any, spot: any) => {
-    if (!acc[spot.row]) {
-      acc[spot.row] = [];
-    }
-    acc[spot.row].push(spot);
-    return acc;
-  }, {});
+  const groupedSlots = [];
+  for (let i = 0; i < parkingSlots.length; i += 5) {
+    groupedSlots.push(parkingSlots.slice(i, i + 5));
+  }
 
-  const selectedSpotLabel = selectedSpot ? 
-    currentFloorSpots.find((s: any) => s.id === selectedSpot)?.label : 
+  const selectedSlotNumber = selectedSpot ? 
+    parkingSlots.find((s: any) => s.id === selectedSpot)?.slotNumber : 
     null;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Floor Selector */}
-      <View style={styles.floorSelector}>
-        {FLOORS.map((floor) => (
-          <TouchableOpacity
-            key={floor.id}
-            style={[
-              styles.floorButton,
-              selectedFloor === floor.id && styles.floorButtonActive
-            ]}
-            onPress={() => setSelectedFloor(floor.id)}
-          >
-            <Text style={[
-              styles.floorButtonText,
-              selectedFloor === floor.id && styles.floorButtonTextActive
-            ]}>
-              {floor.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.statusHeader}>
+        <View style={styles.liveIndicator}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
+        <Text style={styles.statusText}>
+          {parkingSlots.filter(s => s.status === 'FREE').length} / {parkingSlots.length} Available
+        </Text>
       </View>
 
-      {/* Back Button - Floating */}
       <TouchableOpacity onPress={handleBack} style={styles.floatingBackButton}>
         <Image source={icons.backArrow} style={styles.backIcon} />
       </TouchableOpacity>
 
-      {/* Parking Grid */}
       <ScrollView 
         style={styles.gridContainer}
         contentContainerStyle={styles.gridContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Section Title */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Choose Your Spot</Text>
-         
+          <Text style={styles.sectionSubtitle}>Real-time CV Detection</Text>
         </View>
 
-        {/* Top Row (Row A) */}
-        <View style={styles.rowContainer}>
-          {spotsByRow["A"]?.map((spot: any) => (
-            <View key={spot.id} style={styles.spotWrapper}>
-              {spot.isAvailable ? (
-                <TouchableOpacity
-                  style={[
-                    styles.spotButton,
-                    selectedSpot === spot.id && styles.spotButtonSelected,
-                  ]}
-                  onPress={() => handleSpotSelect(spot.id, spot.isAvailable)}
-                >
-                  <Text style={[
-                    styles.spotLabel,
-                    selectedSpot === spot.id && styles.spotLabelSelected,
-                  ]}>
-                    {spot.label}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.occupiedSpotContainer}>
-                  <Text style={styles.occupiedSpotLabel}>{spot.label}</Text>
-                  <Image source={images.car} style={styles.carImage} />
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* Entrance Indicator */}
         <View style={styles.entranceContainer}>
           <Text style={styles.entranceText}>ENTRANCE</Text>
           <View style={styles.entranceArrows}>
@@ -167,65 +102,42 @@ const ChooseSpot = () => {
           </View>
         </View>
 
-        {/* Middle Row (Row B) */}
-        <View style={styles.rowContainer}>
-          {spotsByRow["B"]?.map((spot: any) => (
-            <View key={spot.id} style={styles.spotWrapper}>
-              {spot.isAvailable ? (
-                <TouchableOpacity
-                  style={[
-                    styles.spotButton,
-                    selectedSpot === spot.id && styles.spotButtonSelected,
-                  ]}
-                  onPress={() => handleSpotSelect(spot.id, spot.isAvailable)}
-                >
-                  <Text style={[
-                    styles.spotLabel,
-                    selectedSpot === spot.id && styles.spotLabelSelected,
-                  ]}>
-                    {spot.label}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.occupiedSpotContainer}>
-                  <Text style={styles.occupiedSpotLabel}>{spot.label}</Text>
-                  <Image source={images.car} style={styles.carImage} />
+        {groupedSlots.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.rowContainer}>
+            {row.map((slot: any) => {
+              const isAvailable = slot.status === 'FREE';
+              return (
+                <View key={slot.id} style={styles.spotWrapper}>
+                  {isAvailable ? (
+                    <TouchableOpacity
+                      style={[
+                        styles.spotButton,
+                        selectedSpot === slot.id && styles.spotButtonSelected,
+                      ]}
+                      onPress={() => handleSpotSelect(slot.id, isAvailable)}
+                    >
+                      <Text style={[
+                        styles.spotLabel,
+                        selectedSpot === slot.id && styles.spotLabelSelected,
+                      ]}>
+                        {slot.slotNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.occupiedSpotContainer}>
+                      <Text style={styles.occupiedSpotLabel}>{slot.slotNumber}</Text>
+                      <Image source={images.car} style={styles.carImage} />
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-          ))}
-        </View>
+              );
+            })}
+            {Array.from({ length: 5 - row.length }).map((_, emptyIndex) => (
+              <View key={`empty-${rowIndex}-${emptyIndex}`} style={styles.spotWrapper} />
+            ))}
+          </View>
+        ))}
 
-        {/* Bottom Row (Row C) */}
-        <View style={styles.rowContainer}>
-          {spotsByRow["C"]?.map((spot: any) => (
-            <View key={spot.id} style={styles.spotWrapper}>
-              {spot.isAvailable ? (
-                <TouchableOpacity
-                  style={[
-                    styles.spotButton,
-                    selectedSpot === spot.id && styles.spotButtonSelected,
-                  ]}
-                  onPress={() => handleSpotSelect(spot.id, spot.isAvailable)}
-                >
-                  <Text style={[
-                    styles.spotLabel,
-                    selectedSpot === spot.id && styles.spotLabelSelected,
-                  ]}>
-                    {spot.label}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.occupiedSpotContainer}>
-                  <Text style={styles.occupiedSpotLabel}>{spot.label}</Text>
-                  <Image source={images.car} style={styles.carImage} />
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* Exit Indicator */}
         <View style={styles.exitContainer}>
           <View style={styles.exitArrows}>
             <Text style={styles.arrow}>‹</Text>
@@ -235,11 +147,9 @@ const ChooseSpot = () => {
           <Text style={styles.exitText}>EXIT</Text>
         </View>
 
-        {/* Spacing for button */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Confirm Button */}
       <View style={styles.bottomContainer}>
         <TouchableOpacity
           style={[
@@ -250,7 +160,7 @@ const ChooseSpot = () => {
           disabled={!selectedSpot}
         >
           <Text style={styles.confirmButtonText}>
-            {selectedSpot ? `Pick Parking Spot ${selectedSpotLabel}` : 'Select a Spot'}
+            {selectedSpot ? `Pick Parking Spot ${selectedSlotNumber}` : 'Select a Spot'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -285,46 +195,36 @@ const styles = StyleSheet.create({
     height: 24,
     tintColor: "#FFFFFF",
   },
-  floorSelector: {
+  statusHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
     paddingVertical: 20,
     paddingHorizontal: 20,
     backgroundColor: "#161616",
     borderBottomWidth: 1,
     borderBottomColor: "#2C2C2E",
   },
-  floorButton: {
+  liveIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
-    backgroundColor: "#292929",
-    marginHorizontal: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
-  floorButtonActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#FFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#10b981",
+    marginRight: 6,
   },
-  floorButtonText: {
-    fontSize: 15,
+  liveText: {
+    fontSize: 12,
+    color: "#10b981",
     fontWeight: "600",
-    color: "#FFFFFF",
   },
-  floorButtonTextActive: {
-    color: "#000000",
-    fontWeight: "700",
+  statusText: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
   gridContainer: {
     flex: 1,
@@ -347,31 +247,32 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#8E8E93",
+    color: "#10b981",
     letterSpacing: 0.3,
   },
   rowContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 35,
+    justifyContent: "space-around",
+    marginBottom: 20,
+    paddingHorizontal: 10,
   },
   spotWrapper: {
     alignItems: "center",
-    width: "22%",
+    width: 60,
+    marginHorizontal: 4,
   },
   spotButton: {
-    width: "100%",
-    aspectRatio: 1,
-    borderRadius: 16,
-    borderWidth: 0,
+    width: 60,
+    height: 60,
+    borderRadius: 12,
     backgroundColor: "#292929",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   spotButtonSelected: {
     backgroundColor: "#000000",
@@ -394,10 +295,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   occupiedSpotContainer: {
-    width: "100%",
-    aspectRatio: 1,
-    borderRadius: 16,
-    borderWidth: 0,
+    width: 60,
+    height: 60,
+    borderRadius: 12,
     backgroundColor: "#292929",
     alignItems: "center",
     justifyContent: "center",
@@ -410,16 +310,15 @@ const styles = StyleSheet.create({
   },
   occupiedSpotLabel: {
     position: "absolute",
-    top: 6,
-    fontSize: 11,
+    top: 4,
+    fontSize: 10,
     fontWeight: "700",
     color: "#666666",
     zIndex: 1,
-    letterSpacing: 0.5,
   },
   carImage: {
-    width: "75%",
-    height: "75%",
+    width: 45,
+    height: 45,
     resizeMode: "contain",
     opacity: 0.9,
   },
@@ -427,7 +326,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
-    marginBottom: 35,
+    marginBottom: 20,
     paddingLeft: 15,
     paddingVertical: 8,
   },
