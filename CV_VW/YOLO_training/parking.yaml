@@ -1,5 +1,0 @@
-train: D:\CV_VW\YOLO_training\yolo_dataset\images\train
-val: D:\CV_VW\YOLO_training\yolo_dataset\images\val
-
-nc: 1          # number of classes (parking slot)
-names: ['slot']

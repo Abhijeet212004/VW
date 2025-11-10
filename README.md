@@ -1,4 +1,4 @@
-
+<img src="imobilothon.png" alt="Imobilothon Logo" width="100%">
 
 ### The Challenge & Our Solution
 
@@ -8,25 +8,31 @@ The modern urban commute is a fragmented, stressful experience. Drivers waste fu
 
 Born from the **Volkswagen Imobilothon 5.0**, TechWagon is a single, cohesive ecosystem designed to solve this problem. We integrate AI-powered smart parking prediction, seamless booking, and on-demand ride-sharing into one intuitive platform. Our mission is to deliver a frictionless mobility experience, replacing app-juggling with a single, intelligent solution.
 
+### Strategic Alignment with Volkswagen Group
+
+TechWagon is more than a convenience app; it's a direct answer to the Volkswagen Group's core strategic goals for a digital and sustainable future.
+
+* **Sustainability & Smart City:** By reducing the time drivers spend "circling the block," our AI-powered prediction model directly reduces fuel consumption, vehicle emissions, and urban congestion.
+* **Digital Ecosystems:** This project supports the shift from a traditional automaker to a comprehensive mobility provider by creating a single, scalable ecosystem that integrates the vehicle (CarPlay), the driver (app), and urban infrastructure (parking garages).
+* **Scalable Solutions:** The microservice architecture (Node.js, Python, PostgreSQL) is built for scale, allowing it to be deployed as a "plug-and-play" solution for any city, mall, or corporate campus.
+
 -----
 
 ### Our Vision in Action
 
 We invite you to see our fully functional prototype. Watch our demo video for a complete user walkthrough and review our technical presentation for a deep dive into the architecture.
 
-\<p align="center"\>
-\<a href="[https://youtu.be/Dyze56q51fk](https://youtu.be/Dyze56q51fk)" target="\_blank"\>
-\<img src="[https://img.youtube.com/vi/Dyze56q51fk/maxresdefault.jpg](https://www.google.com/search?q=https://img.youtube.com/vi/Dyze56q51fk/maxresdefault.jpg)" alt="Watch the TechWagon Demo Video" width="720" /\>
-\</a\>
-\</p\>
+**Demo Video:** [https://youtu.be/Dyze56q51fk](https://youtu.be/Dyze56q51fk)
 
-> ### [View Our Technical Presentation (PDF)](https://www.google.com/search?q=techwagon.pdf)
+> ### [View Our Technical Presentation (PDF)](TechWagon.pdf)
 >
 > **Click above for a detailed breakdown of our system architecture, business model, and the core technology that powers TechWagon.**
 
 -----
 
 ### Project Deep Dive: Features & Architecture
+
+> **For a complete technical breakdown, including API specs and database schema, see our [ARCHITECTURE.md](ARCHITECTURE.md) file.**
 
 TechWagon is not a single application but a sophisticated system of interconnected services.
 
@@ -91,5 +97,4 @@ This is a separate web application that allows administrators to manage the enti
       * **Driver Verification:** Onboard new drivers by verifying their documents and vehicle information.
       * **Parking Management:** Manually override parking barriers, view occupancy statistics, and manage parking lot pricing.
 
------
-
+<img src="Mobilothonbanner1.webp" alt="Alt text for the banner" width="100%">

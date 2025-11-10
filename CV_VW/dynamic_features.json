@@ -1,1 +1,0 @@
-["city", "area", "parking_lot_name", "day_of_week", "time_of_day", "is_weekend", "is_holiday", "weather_condition", "temperature_c", "traffic_density", "distance_from_user_km", "vehicle_type", "base_price", "dynamic_multiplier", "final_price", "event_nearby", "total_slots", "occupied_slots", "free_slots", "slots_free_in_15min", "future_bookings_15min"]
