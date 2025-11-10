@@ -1,31 +1,4 @@
-<br>
-&lt;p align=&quot;center&quot;&gt;
-  &lt;a href=&quot;#&quot;&gt;
-    &lt;img src=&quot;YOUR_LOGO_LINK_HERE&quot; alt=&quot;Volkswagen Imobilothon 5.0 Logo&quot; width=&quot;200&quot;&gt;
-  &lt;/a&gt;
-&lt;/p&gt;
 
-\<h1 align="center"\>
-Volkswagen Imobilothon 5.0
-\</h1\>
-
-\<h2 align="center"\>
-TechWagon
-\</h2\>
-
-\<p align="center"\>
-A unified platform for \<b\>Smart Parking\</b\> and \<b\>Ride-Sharing\</b\>, engineered to master urban mobility.
-\</p\>
-
-\<p align="center"\>
-\<img src="[https://img.shields.io/badge/Tech-React%20Native-61DAFB?logo=react](https://www.google.com/search?q=https://img.shields.io/badge/Tech-React%2520Native-61DAFB%3Flogo%3Dreact)" alt="React Native"\>
-\<img src="[https://img.shields.io/badge/Tech-Node.js-539E43?logo=nodedotjs](https://www.google.com/search?q=https://img.shields.io/badge/Tech-Node.js-539E43%3Flogo%3Dnodedotjs)" alt="Node.js"\>
-\<img src="[https://img.shields.io/badge/Tech-Python-3776AB?logo=python](https://www.google.com/search?q=https://img.shields.io/badge/Tech-Python-3776AB%3Flogo%3Dpython)" alt="Python"\>
-\<img src="[https://img.shields.io/badge/Database-PostgreSQL-4169E1?logo=postgresql](https://www.google.com/search?q=https://img.shields.io/badge/Database-PostgreSQL-4169E1%3Flogo%3Dpostgresql)" alt="PostgreSQL"\>
-\<img src="[https://img.shields.io/badge/Payments-Stripe-635BFF?logo=stripe](https://www.google.com/search?q=https://img.shields.io/badge/Payments-Stripe-635BFF%3Flogo%3Dstripe)" alt="Stripe"\>
-\</p\>
-
------
 
 ### The Challenge & Our Solution
 
