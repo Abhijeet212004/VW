@@ -1,4 +1,6 @@
 # TechWagon - Complete Smart Parking & Ride Sharing Platform
+<img width="7268" height="1402" alt="image" src="https://github.com/user-attachments/assets/135cb9d1-fc76-4a21-a68f-c08bc1e407ba" />
+
 
 TechWagon is a comprehensive platform that combines smart parking solutions with ride-sharing capabilities, featuring both mobile application and backend services.
 
