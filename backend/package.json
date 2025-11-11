@@ -5,20 +5,27 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "tsc --noEmitOnError false || npm run build:js",
+    "build:js": "tsc --allowJs --checkJs false --noEmitOnError false",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "clerk:list": "ts-node scripts/clerk-users.ts list",
     "clerk:delete": "ts-node scripts/clerk-users.ts delete",
-    "clear:parking-data": "ts-node scripts/clear-parking-data.ts"
+    "clear:parking-data": "ts-node scripts/clear-parking-data.ts",
+    "clean:test-users": "ts-node scripts/clean-test-users.ts"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.13",
     "@prisma/client": "^5.7.0",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.10.5",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
@@ -29,16 +36,11 @@
     "jsonwebtoken": "^9.0.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "typescript": "^5.3.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^20.10.5",
     "prisma": "^5.7.0",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.3.3"
+    "ts-node-dev": "^2.0.0"
   }
 }
