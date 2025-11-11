@@ -7,6 +7,8 @@ import authRoutes from './modules/auth/auth.route';
 import vehicleRoutes from './modules/vehicle/vehicle.route';
 import parkingSpotRoutes from './modules/parkingSpot/parkingSpot.route';
 import slotDetailsRoutes from './modules/slot_details/slot_details.route';
+import bookingRoutes from './modules/booking/booking.routes';
+import walletRoutes from './modules/wallet/wallet.routes';
 import { errorHandler } from './middlewares/error.middleware';
 import { swaggerSpec } from './config/swagger';
 
@@ -40,7 +42,8 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicle', vehicleRoutes);
 app.use('/api/parking-spot', parkingSpotRoutes);
-app.use('/api/slot-details', slotDetailsRoutes);
+app.use('/api/slot-details', slotDetailsRoutes);app.use('/api/booking', bookingRoutes);
+app.use('/api/wallet', walletRoutes);
 
 app.use(errorHandler);
 
